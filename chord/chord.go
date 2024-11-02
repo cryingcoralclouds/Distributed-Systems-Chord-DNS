@@ -113,22 +113,43 @@ Stores a key-value pair in the DHT.
 Checks if the node is alive and finds the responsible node for the key.
 Calls the responsible node’s StoreKey method and attempts to replicate the key to successors.
 */
+// func (n *Node) Put(key string, value []byte) error {
+// 	if !n.IsAlive {
+// 		return ErrNodeDown
+// 	}
+
+// 	hash := hashKey(key)
+// 	responsible := n.findSuccessorInternal(hash)
+
+// 	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+// 	defer cancel()
+
+// 	if err := responsible.Client.StoreKey(ctx, key, value); err != nil {
+// 		return fmt.Errorf("failed to store key: %w", err)
+// 	}
+
+// 	return n.replicateKey(responsible, key, value)
+// }
 func (n *Node) Put(key string, value []byte) error {
 	if !n.IsAlive {
 		return ErrNodeDown
 	}
 
 	hash := hashKey(key)
-	responsible := n.findSuccessorInternal(hash)
+	responsible, _ := n.findSuccessorInternal(hash)
 
-	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
 	defer cancel()
 
-	if err := responsible.Client.StoreKey(ctx, key, value); err != nil {
-		return fmt.Errorf("failed to store key: %w", err)
+	// If we are the responsible node, store locally
+	if responsible.ID.Cmp(n.ID) == 0 {
+		n.Keys[key] = value
+		n.Versions[key] = time.Now().UnixNano()
+		return nil
 	}
 
-	return n.replicateKey(responsible, key, value)
+	// Otherwise, forward to responsible node
+	return responsible.Client.StoreKey(ctx, key, value)
 }
 
 /*
@@ -170,22 +191,25 @@ Finds the successor of a given ID.
 Checks if the ID is between the node’s ID and the first successor’s ID.
 If not, it asks the closest preceding node for the successor.
 */
-func (n *Node) findSuccessorInternal(id *big.Int) *RemoteNode {
+func (n *Node) findSuccessorInternal(id *big.Int) (*RemoteNode, error) {
 	if between(id, n.ID, n.Successors[0].ID, true) {
-		return n.Successors[0]
+		return n.Successors[0], nil
 	}
 
 	pred := n.closestPrecedingNode(id)
 	if pred == nil {
-		return n.Successors[0]
+		return n.Successors[0], nil
 	}
 
 	succ, err := pred.Client.FindSuccessor(n.ctx, id)
 	if err != nil {
-		return n.Successors[0]
+		// Log or wrap the error to add context if needed
+		return n.Successors[0], fmt.Errorf("failed to find successor from predecessor: %w", err)
 	}
-	return succ
+
+	return succ, nil
 }
+
 
 // Returns the closest preceding node in the finger table for a given ID, which helps in routing requests.
 func (n *Node) closestPrecedingNode(id *big.Int) *RemoteNode {
@@ -202,22 +226,50 @@ Get method:
 Retrieves a value for a given key.
 Similar to Put, it finds the responsible node but checks the replicas if the initial retrieval fails.
 */
+// func (n *Node) Get(key string) ([]byte, error) {
+// 	if !n.IsAlive {
+// 		return nil, ErrNodeDown
+// 	}
+
+// 	responsible := n.findSuccessorInternal(hashKey(key))
+
+// 	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+// 	defer cancel()
+
+// 	value, _, err := responsible.Client.GetKey(ctx, key)
+// 	if err == nil {
+// 		return value, nil
+// 	}
+
+// 	return n.getFromReplicas(key)
+// }
 func (n *Node) Get(key string) ([]byte, error) {
 	if !n.IsAlive {
 		return nil, ErrNodeDown
 	}
 
-	responsible := n.findSuccessorInternal(hashKey(key))
+	hash := hashKey(key)
+	responsible, err := n.findSuccessorInternal(hash)
 
-	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-	defer cancel()
-
-	value, _, err := responsible.Client.GetKey(ctx, key)
-	if err == nil {
+	// If we are the responsible node, return locally stored value
+	if responsible.ID.Cmp(n.ID) == 0 {
+		value, exists := n.Keys[key]
+		if !exists {
+			return nil, ErrKeyNotFound
+		}
 		return value, nil
 	}
 
-	return n.getFromReplicas(key)
+	// Otherwise, forward to responsible node
+	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
+	defer cancel()
+
+	value, _, err := responsible.Client.GetKey(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
 }
 
 // Attempts to fetch the value from the replicas if the responsible node cannot be contacted.
@@ -245,23 +297,58 @@ Join method:
 Allows a node to join the Chord ring.
 Communicates with an introducer node to find its successor and initializes its finger table.
 */
+// func (n *Node) Join(introducer *RemoteNode) error {
+// 	if introducer == nil {
+// 		n.Predecessor = nil
+// 		n.Successors[0] = &RemoteNode{ID: n.ID, Address: n.Address}
+// 		return nil
+// 	}
+
+// 	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+// 	defer cancel()
+
+// 	successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to find successor: %w", err)
+// 	}
+
+// 	n.Successors[0] = successor
+// 	return n.initFingerTable(introducer)
+// }
 func (n *Node) Join(introducer *RemoteNode) error {
-	if introducer == nil {
-		n.Predecessor = nil
-		n.Successors[0] = &RemoteNode{ID: n.ID, Address: n.Address}
-		return nil
-	}
+    if introducer == nil {
+        // First node in the ring
+        n.Predecessor = nil
+        n.Successors[0] = &RemoteNode{
+            ID:      n.ID,
+            Address: n.Address,
+            Client:  n.Client,
+        }
+        return nil
+    }
 
-	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-	defer cancel()
+    // Find our successor through the introducer
+    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+    defer cancel()
 
-	successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
-	if err != nil {
-		return fmt.Errorf("failed to find successor: %w", err)
-	}
+    successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
+    if err != nil {
+        return fmt.Errorf("failed to find successor: %w", err)
+    }
 
-	n.Successors[0] = successor
-	return n.initFingerTable(introducer)
+    n.Successors[0] = successor
+    
+    // Initialize finger table
+    if err := n.initFingerTable(introducer); err != nil {
+        return fmt.Errorf("failed to initialize finger table: %w", err)
+    }
+
+    // Start background tasks
+    go n.stabilize()
+    go n.fixFingers()
+    go n.checkPredecessor()
+
+    return nil
 }
 
 // Initializes the finger table entries for the node by finding successors for each entry.
@@ -278,6 +365,110 @@ func (n *Node) initFingerTable(introducer *RemoteNode) error {
 	}
 
 	return nil
+}
+
+// Periodic stabilization to maintain successor pointers
+func (n *Node) stabilize() {
+    ticker := time.NewTicker(StabilizeInterval)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-n.ctx.Done():
+            return
+        case <-ticker.C:
+            if !n.IsAlive {
+                return
+            }
+
+            ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+            pred, err := n.Successors[0].Client.GetPredecessor(ctx)
+            cancel()
+
+            if err != nil {
+                continue
+            }
+
+            // Check if we should update our successor
+            if pred != nil && between(pred.ID, n.ID, n.Successors[0].ID, false) {
+                n.Successors[0] = pred
+            }
+
+            // Notify our successor of our existence
+            ctx, cancel = context.WithTimeout(n.ctx, NetworkTimeout)
+            n.Successors[0].Client.Notify(ctx, &RemoteNode{
+                ID:      n.ID,
+                Address: n.Address,
+                Client:  n.Client,
+            })
+            cancel()
+        }
+    }
+}
+
+// Periodically fix finger table entries
+func (n *Node) fixFingers() {
+    ticker := time.NewTicker(FixFingersInterval)
+    defer ticker.Stop()
+
+    next := 0
+    for {
+        select {
+        case <-n.ctx.Done():
+            return
+        case <-ticker.C:
+            if !n.IsAlive {
+                return
+            }
+
+            next = (next + 1) % M
+            start := new(big.Int).Add(n.ID, 
+                new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(next)), RingSize))
+            start.Mod(start, RingSize)
+
+            _, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+            successor, err := n.findSuccessorInternal(start)
+            cancel()
+
+            if err == nil && successor != nil {
+                n.FingerTable[next] = successor
+            }
+        }
+    }
+}
+
+// Periodically check predecessor's health
+func (n *Node) checkPredecessor() {
+    ticker := time.NewTicker(CheckPredInterval)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-n.ctx.Done():
+            return
+        case <-ticker.C:
+            if !n.IsAlive || n.Predecessor == nil {
+                continue
+            }
+
+            ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+            err := n.Predecessor.Client.Ping(ctx)
+            cancel()
+
+            if err != nil {
+                n.Predecessor = nil
+            }
+        }
+    }
+}
+
+// Notify is called by another node that thinks it might be our predecessor
+func (n *Node) Notify(node *RemoteNode) error {
+    if n.Predecessor == nil || 
+        between(node.ID, n.Predecessor.ID, n.ID, false) {
+        n.Predecessor = node
+    }
+    return nil
 }
 
 /*
