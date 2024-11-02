@@ -44,7 +44,7 @@ Contains utility functions.
 - `CompareNodes` - to compare two node IDs and returns whether the first is "less than," "greater than," or "equal to" the second
 
 `main.go`  
-For now, it contains local tests and no Docker tests yet.  
+For now, it contains local tests and no Docker tests yet. Tested with only 2 nodes.
 - `testPing` tests if:
     - Each node's HTTP server is running.
     - Each node responds the ping req with an HTTP 200 status to indicate that it's alive.
