@@ -9,95 +9,97 @@ import (
 )
 
 func main() {
-	/* ------------------- Start clients and servers on 2 nodes ----------------------- */
-    // Create two nodes on different ports
-    addr1 := ":8001"
-    addr2 := ":8002"
+	addr1 := ":8001"
+	addr2 := ":8002"
 
-    // Create first node
-    client1 := chord.NewHTTPNodeClient(addr1)
-    node1, err := chord.NewNode(addr1, client1)
-    if err != nil {
-        log.Fatalf("Failed to create node 1: %v", err)
-    }
+	node1, server1 := createNode(addr1)
+	node2, server2 := createNode(addr2)
 
-    // Create second node
-    client2 := chord.NewHTTPNodeClient(addr2)
-    node2, err := chord.NewNode(addr2, client2)
-    if err != nil {
-        log.Fatalf("Failed to create node 2: %v", err)
-    }
+	// Start servers
+	startServer(server1, addr1)
+	startServer(server2, addr2)
 
-    // Start servers
-    server1 := chord.NewHTTPNodeServer(node1)
-    server2 := chord.NewHTTPNodeServer(node2)
+	// Wait for servers to start
+	time.Sleep(time.Second)
 
-    go func() {
-        if err := server1.Start(addr1); err != nil {
-            log.Printf("Server 1 failed: %v", err)
-        }
-    }()
+	// Run tests
+	printSeparator()
+	testPing()
 
-    go func() {
-        if err := server2.Start(addr2); err != nil {
-            log.Printf("Server 2 failed: %v", err)
-        }
-    }()
+	printSeparator()
+	testNodeJoining(node1, node2)
 
-    // Wait for servers to start
-    time.Sleep(time.Second)
-
-	/* ------------------- Test: Ping ----------------------- */
-    // Test ping endpoints
-    fmt.Println("Testing node connectivity...")
-    
-    urls := []string{
-        "http://localhost:8001/ping",
-        "http://localhost:8002/ping",
-    }
-
-    for _, url := range urls {
-        resp, err := http.Get(url)
-        if err != nil {
-            fmt.Printf("Error pinging %s: %v\n", url, err)
-            continue
-        }
-        defer resp.Body.Close()
-
-        if resp.StatusCode == http.StatusOK {
-            fmt.Printf("Successfully pinged %s\n", url)
-        } else {
-            fmt.Printf("Failed to ping %s: status code %d\n", url, resp.StatusCode)
-        }
-    }
-
-	/* ------------------- Test: Node Joining ----------------------- */
-    // Test node joining
-    log.Println("Testing node joining...")
-    
-    introducer := &chord.RemoteNode{
-        ID:      node1.ID,
-        Address: addr1,
-        Client:  chord.NewHTTPNodeClient(addr1),
-    }
-
-    log.Printf("Node 2 trying to join through introducer at %s", addr1)
-    if err := node2.Join(introducer); err != nil {
-        log.Fatalf("Node 2 failed to join: %v", err)
-    }
-    log.Println("Node 2 successfully joined through Node 1")
-
-	/* ------------------- Test: Node Joining ----------------------- */
-    log.Println("Testing stabilization...")
-    testStabilization(node1, node2)
+	printSeparator()
+	testStabilization(node1, node2)
 
     fmt.Println("\nServers running. Press Ctrl+C to exit.")
-
-	/* ------------------- local HTTP for now: End ----------------------- */
     select {}
 }
 
+func printSeparator() {
+	fmt.Println("\n--------------------------\n")
+}
+
+func createNode(addr string) (*chord.Node, *chord.HTTPNodeServer) {
+	client := chord.NewHTTPNodeClient(addr)
+	node, err := chord.NewNode(addr, client)
+	if err != nil {
+		log.Fatalf("Failed to create node at %s: %v", addr, err)
+	}
+
+	server := chord.NewHTTPNodeServer(node)
+	return node, server
+}
+
+func startServer(server *chord.HTTPNodeServer, addr string) {
+	go func() {
+		if err := server.Start(addr); err != nil {
+			log.Printf("Server at %s failed: %v", addr, err)
+		}
+	}()
+}
+
+func testPing() {
+	fmt.Println("Testing node connectivity...")
+	urls := []string{
+		"http://localhost:8001/ping",
+		"http://localhost:8002/ping",
+	}
+
+	for _, url := range urls {
+		resp, err := http.Get(url)
+		if err != nil {
+			fmt.Printf("Error pinging %s: %v\n", url, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			fmt.Printf("Successfully pinged %s\n", url)
+		} else {
+			fmt.Printf("Failed to ping %s: status code %d\n", url, resp.StatusCode)
+		}
+	}
+}
+
+func testNodeJoining(node1, node2 *chord.Node) {
+	log.Println("Testing node joining...")
+
+	introducer := &chord.RemoteNode{
+		ID:      node1.ID,
+		Address: node1.Address,
+		Client:  chord.NewHTTPNodeClient(node1.Address),
+	}
+
+	log.Printf("Node 2 trying to join through introducer at %s", node1.Address)
+	if err := node2.Join(introducer); err != nil {
+		log.Fatalf("Node 2 failed to join: %v", err)
+	}
+	log.Println("Node 2 successfully joined through Node 1")
+}
+
 func testStabilization(node1, node2 *chord.Node) {
+	log.Println("Testing stabilization...")
 	fmt.Println("\nNode comparison:")
     fmt.Printf("Node 1 ID is %s Node 2 ID\n", 
         chord.CompareNodes(node1.ID, node2.ID))

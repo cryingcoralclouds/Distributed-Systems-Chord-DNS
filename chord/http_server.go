@@ -120,24 +120,16 @@ func (s *HTTPNodeServer) handleNotify(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    log.Printf("[Notify] Node %s received notify from %s (ID: %s)", 
-        s.node.Address, node.Address, node.ID)
-
     shouldUpdate := false
     if s.node.Predecessor == nil {
-        log.Printf("[Notify] No predecessor, accepting %s", node.Address)
         shouldUpdate = true
     } else if s.node.Predecessor.ID.Cmp(s.node.ID) == 0 {
         // If we're our own predecessor, accept the new node
-        log.Printf("[Notify] Self-predecessor, accepting new node %s", node.Address)
         shouldUpdate = true
     } else {
         // Check if the new node is between our current predecessor and us
         startID := s.node.Predecessor.ID
         endID := s.node.ID
-        
-        log.Printf("[Notify] Checking if %s is between %s and %s", 
-            node.ID, startID, endID)
         
         // If start > end, we've wrapped around the ring
         if startID.Cmp(endID) > 0 {
@@ -147,13 +139,9 @@ func (s *HTTPNodeServer) handleNotify(w http.ResponseWriter, r *http.Request) {
             // Normal case: node should be between start and end
             shouldUpdate = node.ID.Cmp(startID) > 0 && node.ID.Cmp(endID) < 0
         }
-        
-        log.Printf("[Notify] Should update predecessor: %v", shouldUpdate)
     }
 
     if shouldUpdate {
-        log.Printf("[Notify] Node %s updating predecessor to %s", 
-            s.node.Address, node.Address)
         s.node.Predecessor = &node
     }
 

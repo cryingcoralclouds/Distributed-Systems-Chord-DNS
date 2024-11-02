@@ -29,7 +29,6 @@ type Node struct {
 	Client NodeClient
 }
 
-// Update NewNode in node.go to properly initialize Successors
 func NewNode(addr string, client NodeClient) (*Node, error) {
     if addr == "" {
         return nil, errors.New("network address cannot be empty")
@@ -69,23 +68,6 @@ Stores a key-value pair in the DHT.
 Checks if the node is alive and finds the responsible node for the key.
 Calls the responsible node’s StoreKey method and attempts to replicate the key to successors.
 */
-// func (n *Node) Put(key string, value []byte) error {
-// 	if !n.IsAlive {
-// 		return ErrNodeDown
-// 	}
-
-// 	hash := hashKey(key)
-// 	responsible := n.findSuccessorInternal(hash)
-
-// 	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-// 	defer cancel()
-
-// 	if err := responsible.Client.StoreKey(ctx, key, value); err != nil {
-// 		return fmt.Errorf("failed to store key: %w", err)
-// 	}
-
-// 	return n.replicateKey(responsible, key, value)
-// }
 func (n *Node) Put(key string, value []byte) error {
 	if !n.IsAlive {
 		return ErrNodeDown
@@ -146,23 +128,6 @@ Get method:
 Retrieves a value for a given key.
 Similar to Put, it finds the responsible node but checks the replicas if the initial retrieval fails.
 */
-// func (n *Node) Get(key string) ([]byte, error) {
-// 	if !n.IsAlive {
-// 		return nil, ErrNodeDown
-// 	}
-
-// 	responsible := n.findSuccessorInternal(hashKey(key))
-
-// 	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-// 	defer cancel()
-
-// 	value, _, err := responsible.Client.GetKey(ctx, key)
-// 	if err == nil {
-// 		return value, nil
-// 	}
-
-// 	return n.getFromReplicas(key)
-// }
 func (n *Node) Get(key string) ([]byte, error) {
 	if !n.IsAlive {
 		return nil, ErrNodeDown
@@ -223,8 +188,6 @@ Join method:
 Allows a node to join the Chord ring.
 Communicates with an introducer node to find its successor and initializes its finger table.
 */
-// Update Join in node.go
-// Update Join in node.go
 func (n *Node) Join(introducer *RemoteNode) error {
     if introducer == nil {
         log.Printf("[Join] No introducer provided, starting new ring")
@@ -236,9 +199,6 @@ func (n *Node) Join(introducer *RemoteNode) error {
         }
         return nil
     }
-
-    log.Printf("[Join] Node %s (ID: %s) joining through introducer %s", 
-        n.Address, n.ID, introducer.Address)
     
     ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
     defer cancel()
@@ -248,20 +208,17 @@ func (n *Node) Join(introducer *RemoteNode) error {
     if err != nil {
         return fmt.Errorf("failed to find successor: %w", err)
     }
-
-    log.Printf("[Join] Found successor %s (ID: %s) for node %s", 
-        successor.Address, successor.ID, n.Address)
     
     // Clear our predecessor - it will be set through stabilization
     n.Predecessor = nil
     
     // If the successor is the introducer and we're smaller, we should be its predecessor
-    if successor.ID.Cmp(introducer.ID) == 0 && n.ID.Cmp(introducer.ID) < 0 {
-        log.Printf("[Join] We should be the predecessor of the introducer")
-        n.Successors[0] = successor
-    } else {
-        n.Successors[0] = successor
-    }
+	if successor.ID.Cmp(introducer.ID) == 0 && n.ID.Cmp(introducer.ID) < 0 {
+		log.Printf("[Join] We should be the predecessor of the introducer")
+	}
+
+	// Set the successor
+	n.Successors[0] = successor
 
     // Immediately notify our successor
     self := &RemoteNode{
@@ -321,24 +278,19 @@ func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	return keys, nil
 }
 
-// Periodically queries successor for its predecessor,
-// updates successor if needed,
-// notifies the successor about this node's presence
-// Update stabilize in node.go
+/*
+Periodically queries successor for its predecessor,
+updates successor if needed,
+notifies the successor about this node's presence
+*/
 func (n *Node) stabilize() {
     if !n.IsAlive || n.Successors[0] == nil {
         return
     }
 
-    log.Printf("[Stabilize] Node %s (ID: %s) starting stabilization", n.Address, n.ID)
-    log.Printf("[Stabilize] Current successor: %s (ID: %s)", 
-        n.Successors[0].Address, n.Successors[0].ID)
-
     // If we're our own successor and there's a predecessor, make it our successor
     if n.Successors[0].ID.Cmp(n.ID) == 0 && n.Predecessor != nil && 
        n.Predecessor.ID.Cmp(n.ID) != 0 {
-        log.Printf("[Stabilize] Using predecessor %s as new successor", 
-            n.Predecessor.Address)
         n.Successors[0] = n.Predecessor
         return
     }
@@ -351,12 +303,9 @@ func (n *Node) stabilize() {
     }
 
     if pred != nil {
-        log.Printf("[Stabilize] Successor's predecessor is %s (ID: %s)", 
-            pred.Address, pred.ID)
         
         // Update our successor if needed
         if pred.ID.Cmp(n.ID) != 0 && pred.ID.Cmp(n.Successors[0].ID) != 0 {
-            log.Printf("[Stabilize] Updating successor to %s", pred.Address)
             n.Successors[0] = pred
         }
     }
@@ -369,8 +318,6 @@ func (n *Node) stabilize() {
     }
 
     // Notify our successor
-    log.Printf("[Stabilize] Notifying successor %s about ourselves", 
-        n.Successors[0].Address)
     if err := n.Successors[0].Client.Notify(n.ctx, self); err != nil {
         log.Printf("[Stabilize] Error notifying successor: %v", err)
     }
