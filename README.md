@@ -3,9 +3,9 @@
 
 
 ## Set Up
-
+In the parent directory, run
 ```bash
-docker-compose up --build # Build and start the containers
+docker-compose -f docker/docker-compose.yml up --build
 ```
 
 

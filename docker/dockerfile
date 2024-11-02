@@ -1,15 +1,15 @@
 # Dockerfile define a containers image that installs Go, copies the project code, and sets up a working directory for running a DNS service using the Chord protocol.
 
 # Use the official Go image (based on Alpine Linux, which is lightweight and efficient) as the base image
-# Go version: 1.20
-FROM golang:1.20-alpine
+# Go version: 1.23
+FROM golang:1.23-alpine
 
 # Set the working directory inside the container to /app
 # All subsequent commands will be run from this directory
 WORKDIR /app
 
 # Copy the Go module files (to the /app directory)
-COPY go.mod go.sum ./
+COPY go.mod ./
 
 # Download dependencies (listed in go.mod)
 RUN go mod download

@@ -1,1 +1,7 @@
-// Entry point
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Code is running")
+}
