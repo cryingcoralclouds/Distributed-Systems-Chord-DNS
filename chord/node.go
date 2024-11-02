@@ -273,7 +273,7 @@ func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	keys := make(map[string][]byte)
 	for key, value := range n.Keys {
 		hash := HashKey(key)
-		if between(hash, start, end, true) {
+		if Between(hash, start, end, true) {
 			keys[key] = value
 		}
 	}

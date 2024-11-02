@@ -32,7 +32,7 @@ func (n *Node) findSuccessorInternal(id *big.Int) *RemoteNode {
     }
 
     // Check if the ID falls between us and our successor
-    if between(id, n.ID, n.Successors[0].ID, false) {
+    if Between(id, n.ID, n.Successors[0].ID, false) {
         return n.Successors[0]
     }
 
@@ -53,7 +53,7 @@ func (n *Node) findSuccessorInternal(id *big.Int) *RemoteNode {
 // Returns the closest preceding node in the finger table for a given ID, which helps in routing requests.
 func (n *Node) closestPrecedingNode(id *big.Int) *RemoteNode {
 	for i := M - 1; i >= 0; i-- {
-		if n.FingerTable[i] != nil && between(n.FingerTable[i].ID, n.ID, id, false) {
+		if n.FingerTable[i] != nil && Between(n.FingerTable[i].ID, n.ID, id, false) {
 			return n.FingerTable[i]
 		}
 	}

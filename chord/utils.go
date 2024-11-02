@@ -14,7 +14,7 @@ func HashKey(input string) *big.Int {
 }
 
 // A utility function that checks if a given ID falls between two other IDs in a circular manner, accounting for the ring topology of Chord.
-func between(id, start, end *big.Int, inclusive bool) bool {
+func Between(id, start, end *big.Int, inclusive bool) bool {
     if id == nil || start == nil || end == nil {
         log.Printf("[Between] Nil value detected in comparison")
         return false

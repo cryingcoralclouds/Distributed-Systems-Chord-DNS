@@ -103,9 +103,9 @@ func TestBetween(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		got := between(tt.id, tt.start, tt.end, tt.inclusive)
+		got := Between(tt.id, tt.start, tt.end, tt.inclusive)
 		if got != tt.want {
-			t.Errorf("test %d: between(%v, %v, %v, %v) = %v; want %v",
+			t.Errorf("test %d: Between(%v, %v, %v, %v) = %v; want %v",
 				i, tt.id, tt.start, tt.end, tt.inclusive, got, tt.want)
 		}
 	}
