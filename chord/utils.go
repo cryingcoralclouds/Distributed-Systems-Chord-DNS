@@ -7,7 +7,7 @@ import (
 )
 
 // Takes a string input and returns its SHA-1 hash as a big integer. This is used for generating unique identifiers for keys and nodes.
-func hashKey(input string) *big.Int {
+func HashKey(input string) *big.Int {
 	hash := sha1.New()
 	hash.Write([]byte(input))
 	return new(big.Int).SetBytes(hash.Sum(nil))

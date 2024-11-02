@@ -23,6 +23,8 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Run tests
+
+	// Basic node operations: Ping, Join, Stabilization
 	printSeparator()
 	testPing()
 
@@ -31,6 +33,11 @@ func main() {
 
 	printSeparator()
 	testStabilization(node1, node2)
+
+	printSeparator()
+	testPut(node1, node2)
+
+	// Core DHT functionalities: Put, Get
 
     fmt.Println("\nServers running. Press Ctrl+C to exit.")
     select {}
@@ -134,4 +141,34 @@ func testStabilization(node1, node2 *chord.Node) {
         fmt.Printf("  Successor: %s (Address: %s)\n", 
             node2.Successors[0].ID, node2.Successors[0].Address)
     }
+}
+
+func testPut(node1, node2 *chord.Node) {
+	testKey := "test-key"
+	testValue := []byte("test-value")
+
+	// Try storing on node1
+	err := node1.Put(testKey, testValue)
+	if err != nil {
+		log.Fatalf("Failed to put key-value: %v", err)
+	}
+
+	// Verify the key was stored in the correct node
+	// Get the hash of the key
+	keyHash := chord.HashKey(testKey)
+	fmt.Printf("Key hash: %s\n", keyHash.String())
+	fmt.Printf("Node1 ID: %s\n", node1.ID.String())
+	fmt.Printf("Node2 ID: %s\n", node2.ID.String())
+
+	// Wait a bit then check both nodes
+	time.Sleep(time.Second)
+
+	// Print where the key ended up
+	if value, exists := node1.Keys[testKey]; exists {
+		fmt.Printf("Key '%s' found in node1, value: %s\n", testKey, string(value))
+	} else if value, exists := node2.Keys[testKey]; exists {
+		fmt.Printf("Key '%s' found in node2, value: %s\n", testKey, string(value))
+	} else {
+		fmt.Println("Key not found in either node1 or node2")
+	}
 }

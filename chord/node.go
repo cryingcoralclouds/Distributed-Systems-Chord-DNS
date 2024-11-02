@@ -36,7 +36,7 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 
     ctx, cancel := context.WithCancel(context.Background())
     node := &Node{
-        ID:                hashKey(addr),
+        ID:                HashKey(addr),
         Address:           addr,
         IsAlive:           true,
         Successors:        make([]*RemoteNode, NumSuccessors),
@@ -63,17 +63,17 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 }
 
 /*
-Put method:
-Stores a key-value pair in the DHT.
-Checks if the node is alive and finds the responsible node for the key.
-Calls the responsible node’s StoreKey method and attempts to replicate the key to successors.
+Put:
+Hashes the key to determine where it should be stored.
+Finds the responsible node for the hashed key.
+If current node is responsible, store locally. Otherwise, forward req with key-value to the responsible node.
 */
 func (n *Node) Put(key string, value []byte) error {
 	if !n.IsAlive {
 		return ErrNodeDown
 	}
 
-	hash := hashKey(key)
+	hash := HashKey(key)
 	responsible := n.findSuccessorInternal(hash)
 
 	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
@@ -133,7 +133,7 @@ func (n *Node) Get(key string) ([]byte, error) {
 		return nil, ErrNodeDown
 	}
 
-	hash := hashKey(key)
+	hash := HashKey(key)
 	responsible := n.findSuccessorInternal(hash)
 
 	// If we are the responsible node, return locally stored value
@@ -269,7 +269,7 @@ func (n *Node) Leave() error {
 func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	keys := make(map[string][]byte)
 	for key, value := range n.Keys {
-		hash := hashKey(key)
+		hash := HashKey(key)
 		if between(hash, start, end, true) {
 			keys[key] = value
 		}

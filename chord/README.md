@@ -100,8 +100,15 @@ According to Claude, these are the next steps in order of priority:
     ```
     docker-compose -f docker/docker-compose.yml up --build
     ```
-
 4) To see logs from a specific node e.g. node 1, which is named docker-node1-1, from the parent directory run   
     ```
     docker logs -f docker-node1-1
+    ```
+5) This is a bit extra but if you want try ping another node from the terminal, run
+    ```
+    go run main.go
+    ```
+    Then, in another terminal, to ping node with 8001 port, run
+    ```
+    curl http://localhost:8001/ping
     ```

@@ -8,10 +8,12 @@ HTTPNodeServer:
 */
 
 import (
-    "encoding/json"
-    "net/http"
-    "log"
+	"encoding/json"
+	"io"
+	"log"
 	"math/big"
+	"net/http"
+	"time"
 )
 
 type HTTPNodeServer struct {
@@ -31,6 +33,7 @@ func (s *HTTPNodeServer) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("/successor/", s.handleFindSuccessor)
     mux.HandleFunc("/predecessor", s.handleGetPredecessor)
 	mux.HandleFunc("/notify", s.handleNotify)
+	mux.HandleFunc("/store/", s.handleStoreKey)
 
     return mux
 }
@@ -146,4 +149,31 @@ func (s *HTTPNodeServer) handleNotify(w http.ResponseWriter, r *http.Request) {
     }
 
     w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse the key from the URL path
+	key := r.URL.Path[len("/store/"):]
+	if key == "" {
+		http.Error(w, "Key not provided", http.StatusBadRequest)
+		return
+	}
+
+	// Read the value from request body
+	value, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	// Store the key-value pair
+	s.node.Keys[key] = value
+	s.node.Versions[key] = time.Now().UnixNano()
+
+	w.WriteHeader(http.StatusOK)
 }

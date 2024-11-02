@@ -135,11 +135,29 @@ func (c *HTTPNodeClient) Notify(ctx context.Context, node *RemoteNode) error {
     return nil
 }
 
-// Stub implementations for other required NodeClient interface methods
+// Forwards key-value pair to another node over HTTP
 func (c *HTTPNodeClient) StoreKey(ctx context.Context, key string, value []byte) error {
-    return fmt.Errorf("not implemented")
+	req, err := http.NewRequestWithContext(ctx, "POST", 
+		fmt.Sprintf("%s/store/%s", c.baseURL, key), 
+		bytes.NewBuffer(value))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
+// Stub implementations for other required NodeClient interface methods
 func (c *HTTPNodeClient) GetKey(ctx context.Context, key string) ([]byte, int64, error) {
     return nil, 0, fmt.Errorf("not implemented")
 }
