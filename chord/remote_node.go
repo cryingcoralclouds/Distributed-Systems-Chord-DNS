@@ -1,8 +1,10 @@
 package chord
 
 import (
-    "context"
-    "math/big"
+	"context"
+	"encoding/json"
+	"fmt"
+	"math/big"
 )
 
 // NodeClient defines the interface for remote node communication
@@ -21,7 +23,45 @@ type NodeClient interface {
 
 // RemoteNode represents a reference to a remote node in the Chord ring
 type RemoteNode struct {
-	ID      *big.Int
-	Address string
-	Client  NodeClient
+    ID      *big.Int    `json:"id"`
+    Address string      `json:"address"`
+    Client  NodeClient  `json:"-"` // Exclude from JSON serialization
+}
+
+// Custom JSON marshaling for big.Int
+func (n *RemoteNode) MarshalJSON() ([]byte, error) {
+    type Alias RemoteNode
+    return json.Marshal(&struct {
+        ID string `json:"id"`
+        *Alias
+    }{
+        ID:    n.ID.String(),
+        Alias: (*Alias)(n),
+    })
+}
+
+// Custom JSON unmarshaling for big.Int
+func (n *RemoteNode) UnmarshalJSON(data []byte) error {
+    type Alias RemoteNode
+    aux := &struct {
+        ID string `json:"id"`
+        *Alias
+    }{
+        Alias: (*Alias)(n),
+    }
+    
+    if err := json.Unmarshal(data, &aux); err != nil {
+        return err
+    }
+    
+    id, ok := new(big.Int).SetString(aux.ID, 10)
+    if !ok {
+        return fmt.Errorf("invalid ID format")
+    }
+    n.ID = id
+    
+    // Create a new client for the remote node
+    n.Client = NewHTTPNodeClient(n.Address)
+    
+    return nil
 }

@@ -2,6 +2,7 @@ package chord
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 )
 
@@ -12,20 +13,41 @@ Checks if the ID is between the node’s ID and the first successor’s ID.
 If not, it asks the closest preceding node for the successor.
 */
 func (n *Node) findSuccessorInternal(id *big.Int) *RemoteNode {
-	if between(id, n.ID, n.Successors[0].ID, true) {
-		return n.Successors[0]
-	}
+    // If we have no successors or our successor is ourselves
+    if n.Successors[0] == nil || n.Successors[0].ID.Cmp(n.ID) == 0 {
+        // If the incoming node's ID is less than ours, it should be our successor
+        if id.Cmp(n.ID) < 0 {
+            return &RemoteNode{
+                ID:      id,
+                Address: n.Address, // This will be updated when the node actually joins
+                Client:  n.Client,
+            }
+        }
+        // Otherwise we're the successor
+        return &RemoteNode{
+            ID:      n.ID,
+            Address: n.Address,
+            Client:  n.Client,
+        }
+    }
 
-	pred := n.closestPrecedingNode(id)
-	if pred == nil {
-		return n.Successors[0]
-	}
+    // Check if the ID falls between us and our successor
+    if between(id, n.ID, n.Successors[0].ID, false) {
+        return n.Successors[0]
+    }
 
-	succ, err := pred.Client.FindSuccessor(n.ctx, id)
-	if err != nil {
-		return n.Successors[0]
-	}
-	return succ
+    // Find closest preceding node
+    pred := n.closestPrecedingNode(id)
+    if pred == nil {
+        return n.Successors[0]
+    }
+
+    succ, err := pred.Client.FindSuccessor(n.ctx, id)
+    if err != nil {
+        log.Printf("Error finding successor through predecessor: %v", err)
+        return n.Successors[0]
+    }
+    return succ
 }
 
 // Returns the closest preceding node in the finger table for a given ID, which helps in routing requests.

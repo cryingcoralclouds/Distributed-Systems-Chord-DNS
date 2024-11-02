@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"time"
 )
@@ -28,28 +29,38 @@ type Node struct {
 	Client NodeClient
 }
 
-// NewNode creates a new Chord node
+// Update NewNode in node.go to properly initialize Successors
 func NewNode(addr string, client NodeClient) (*Node, error) {
-	if addr == "" {
-		return nil, errors.New("network address cannot be empty")
-	}
+    if addr == "" {
+        return nil, errors.New("network address cannot be empty")
+    }
 
-	ctx, cancel := context.WithCancel(context.Background())
-	node := &Node{
-		ID:                hashKey(addr),
-		Address:           addr,
-		IsAlive:           true,
-		Successors:        make([]*RemoteNode, NumSuccessors),
-		Keys:              make(map[string][]byte),
-		Versions:          make(map[string]int64),
-		ReplicationStatus: make(map[string][]*RemoteNode),
-		ctx:               ctx,
-		cancel:            cancel,
-		msgChan:           make(chan NodeMsg, 10),
-		Client:            client, // Assign the client
-	}
+    ctx, cancel := context.WithCancel(context.Background())
+    node := &Node{
+        ID:                hashKey(addr),
+        Address:           addr,
+        IsAlive:           true,
+        Successors:        make([]*RemoteNode, NumSuccessors),
+        Keys:              make(map[string][]byte),
+        Versions:          make(map[string]int64),
+        ReplicationStatus: make(map[string][]*RemoteNode),
+        ctx:               ctx,
+        cancel:            cancel,
+        msgChan:           make(chan NodeMsg, 10),
+        Client:            client,
+    }
 
-	return node, nil
+    // Initialize first successor as self
+    node.Successors[0] = &RemoteNode{
+        ID:      node.ID,
+        Address: node.Address,
+        Client:  client,
+    }
+
+	// Start stabilization
+	node.startStabilize()
+
+    return node, nil
 }
 
 /*
@@ -212,26 +223,59 @@ Join method:
 Allows a node to join the Chord ring.
 Communicates with an introducer node to find its successor and initializes its finger table.
 */
+// Update Join in node.go
+// Update Join in node.go
 func (n *Node) Join(introducer *RemoteNode) error {
-	if introducer == nil {
-		n.Predecessor = nil
-		n.Successors[0] = &RemoteNode{ID: n.ID, Address: n.Address}
-		return nil
-	}
+    if introducer == nil {
+        log.Printf("[Join] No introducer provided, starting new ring")
+        n.Predecessor = nil
+        n.Successors[0] = &RemoteNode{
+            ID:      n.ID,
+            Address: n.Address,
+            Client:  n.Client,
+        }
+        return nil
+    }
 
-	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-	defer cancel()
+    log.Printf("[Join] Node %s (ID: %s) joining through introducer %s", 
+        n.Address, n.ID, introducer.Address)
+    
+    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+    defer cancel()
 
-	successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
-	if err != nil {
-		return fmt.Errorf("failed to find successor: %w", err)
-	}
+    // Find our successor through the introducer
+    successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
+    if err != nil {
+        return fmt.Errorf("failed to find successor: %w", err)
+    }
 
-	n.Successors[0] = successor
-	return n.initFingerTable(introducer)
+    log.Printf("[Join] Found successor %s (ID: %s) for node %s", 
+        successor.Address, successor.ID, n.Address)
+    
+    // Clear our predecessor - it will be set through stabilization
+    n.Predecessor = nil
+    
+    // If the successor is the introducer and we're smaller, we should be its predecessor
+    if successor.ID.Cmp(introducer.ID) == 0 && n.ID.Cmp(introducer.ID) < 0 {
+        log.Printf("[Join] We should be the predecessor of the introducer")
+        n.Successors[0] = successor
+    } else {
+        n.Successors[0] = successor
+    }
+
+    // Immediately notify our successor
+    self := &RemoteNode{
+        ID:      n.ID,
+        Address: n.Address,
+        Client:  n.Client,
+    }
+    
+    if err := n.Successors[0].Client.Notify(ctx, self); err != nil {
+        log.Printf("[Join] Failed to notify successor during join: %v", err)
+    }
+    
+    return n.initFingerTable(introducer)
 }
-
-
 
 /*
 Leave method:
@@ -275,4 +319,75 @@ func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	}
 
 	return keys, nil
+}
+
+// Periodically queries successor for its predecessor,
+// updates successor if needed,
+// notifies the successor about this node's presence
+// Update stabilize in node.go
+func (n *Node) stabilize() {
+    if !n.IsAlive || n.Successors[0] == nil {
+        return
+    }
+
+    log.Printf("[Stabilize] Node %s (ID: %s) starting stabilization", n.Address, n.ID)
+    log.Printf("[Stabilize] Current successor: %s (ID: %s)", 
+        n.Successors[0].Address, n.Successors[0].ID)
+
+    // If we're our own successor and there's a predecessor, make it our successor
+    if n.Successors[0].ID.Cmp(n.ID) == 0 && n.Predecessor != nil && 
+       n.Predecessor.ID.Cmp(n.ID) != 0 {
+        log.Printf("[Stabilize] Using predecessor %s as new successor", 
+            n.Predecessor.Address)
+        n.Successors[0] = n.Predecessor
+        return
+    }
+
+    // Get successor's predecessor
+    pred, err := n.Successors[0].Client.GetPredecessor(n.ctx)
+    if err != nil {
+        log.Printf("[Stabilize] Error getting successor's predecessor: %v", err)
+        return
+    }
+
+    if pred != nil {
+        log.Printf("[Stabilize] Successor's predecessor is %s (ID: %s)", 
+            pred.Address, pred.ID)
+        
+        // Update our successor if needed
+        if pred.ID.Cmp(n.ID) != 0 && pred.ID.Cmp(n.Successors[0].ID) != 0 {
+            log.Printf("[Stabilize] Updating successor to %s", pred.Address)
+            n.Successors[0] = pred
+        }
+    }
+
+    // Create RemoteNode for self
+    self := &RemoteNode{
+        ID:      n.ID,
+        Address: n.Address,
+        Client:  n.Client,
+    }
+
+    // Notify our successor
+    log.Printf("[Stabilize] Notifying successor %s about ourselves", 
+        n.Successors[0].Address)
+    if err := n.Successors[0].Client.Notify(n.ctx, self); err != nil {
+        log.Printf("[Stabilize] Error notifying successor: %v", err)
+    }
+}
+
+// To loop stabilization
+func (n *Node) startStabilize() {
+    ticker := time.NewTicker(StabilizeInterval)
+    go func() {
+        for {
+            select {
+            case <-ticker.C:
+                n.stabilize()
+            case <-n.ctx.Done():
+                ticker.Stop()
+                return
+            }
+        }
+    }()
 }
