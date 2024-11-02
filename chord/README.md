@@ -4,13 +4,13 @@ Contains constants and variables.
 
 `node.go`  
 Contains `Node` struct definition and core functions.  
-- `NewNode` - to initialise a node
-- `Join` - to allow a new node to join the ring
-- `FindSucessor` - 
-- `Get`
-- `Put`
-- `stabilize()`
-- `startStabilize()`
+- `NewNode` - to initialise a node.
+- `Join` - to allow a new node to join the ring.
+- `A` - to locate the node responsible for a specific key.
+- `Get` - Retrieves the value associated with a key by finding the responsible node.
+- `Put` - Stores a key-value pair on the node responsible for the key's hash, either locally or by forwarding the request to the correct node.
+- `stabilize()` - Periodically checks and updates the node's successor and notifies it of the node’s presence.
+- `startStabilize()` - Starts a periodic loop that calls stabilize at regular intervals.
 
 `remote_node.go`  
 Contains the concept of remote node and interactions over the 
@@ -23,12 +23,13 @@ Hosts an HTTP server for the node.
 `http_client.go`  
 Allows a node to send HTTP req to other nodes' HTTP servers.
 - `Ping` - to check if a remote node is alive.
-- `FindSuccessor`
-- `GetPredecessor`
-- `Notify`
-
-`http_server.go`
-
+- `FindSuccessor` - to locate successor node responsible for a given ID by sending an HTTP request to the target node.
+- `GetPredecessor` - to retrieve the predecessor of the target node by sending an HTTP request to its server.
+- `Notify` - to nodify a target node of this node's presence by sending a POST request with this node's info, necessary for stabilization.
+- `StoreKey` - to forward a key-value pair to the target node for storage via an HTTP POST request.
+- `GetKey` - to retrieve a key’s value and version from the target node by sending a GET request.
+- `DeleteKey` - to be implemented by Checkpoint 3.
+- `TransferKeys` - to be implemented by Checkpoint 3.
 
 `messages.go`  
 Contains `NodeMsg` definition and other message related stuff.  
@@ -38,11 +39,22 @@ Contains finger table and routing.
   
 `utils.go`  
 Contains utility functions.
-- `hashKey` - to generate consistent hashing i.e. same hashes for same input, and different hashes for different inputs.
+- `HashKey` - to generate consistent hashing i.e. same hashes for same input, and different hashes for different inputs.
 - `between` - to check if an ID is in between two IDs.  
-  
+- `CompareNodes` - to compare two node IDs and returns whether the first is "less than," "greater than," or "equal to" the second
+
 `main.go`  
-Contains local tests for now.
+For now, it contains local tests and no Docker tests yet.  
+- `testPing` tests if:
+    - Each node's HTTP server is running.
+    - Each node responds the ping req with an HTTP 200 status to indicate that it's alive.
+- `testNodeJoining` tests if:
+    - node2 can join the ring through node1, which acts as an introducer.
+    - node2 successfully establishes successor and predecessor.
+- `testStabilization` tests if:
+    - Nodes update successors and predecessors correctly over multiple iterations.
+    - Over time, node1 and node2 maintain accurate knowledge of each other's positions.
+    - Nodes' finger table and successor lists are updated correctly.
 - `testPutAndGet` tests if:
     - We can store a key-value pair
     - We can retrieve the value through any node in the ring
@@ -71,21 +83,18 @@ Using goroutines for HTTP servers
 ## Next steps
 According to Claude, these are the next steps in order of priority:  
 1) Periodic Maintenance Routines  
-    - stabilise() to periodically verify and update successor pointers  
     - fixFingers() to periodically refresh finger table entries
     - checkPredecessor() to detect node failures
 
 2) HTTP Transport Layer
-    - Create an HTTP implementation of the NodeClient interface
-    - Set up HTTP endpoints for all required RPCs (FindSuccessor, GetKey, StoreKey, etc.)
-    - Implement request/response handling for node communication
+    - Set up HTTP endpoints and implement request/response handling for DeleteKey and TransferKey (by Checkpoint 3)
 
-3) Key Replication and Consistency
+3) Key Replication and Consistency (by Checkpoint 3)
     - Complete the replicateKey() implementation
-    - Add version tracking for keys (no need for our proj I think)
-    - Implement periodic key synchronization between replicas (no need for our proj I think)
+    - Add version tracking for keys
+    - Implement periodic key synchronization between replicas
 
-4) Failure Detection and Recovery (which I think should be last step instead)
+4) Failure Detection and Recovery (by Checkpoint 3)
     - Add heartbeat mechanisms between nodes
     - Implement successor list maintenance
     - Add key recovery when nodes fail
@@ -100,7 +109,7 @@ According to Claude, these are the next steps in order of priority:
     ```
     go run main.go
     ```
-2) To see test outputs, from the parent directory run
+2) (Ignore test folder for now, don't really need it) To see test outputs, from the parent directory run
     ```
     go test ./chord
     ```
