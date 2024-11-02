@@ -124,9 +124,12 @@ func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error
 }
 
 /*
-Get method:
-Retrieves a value for a given key.
-Similar to Put, it finds the responsible node but checks the replicas if the initial retrieval fails.
+Get:
+Generate a hash for the key to identify its position on the ring.
+Use the Chord ring structure to find the successor node responsible for that key hash.
+Use "between" checks to confirm if the node is responsible for the key.
+Retrieve the value if the node holds it; otherwise, forward the request to the responsible node.
+Return value.
 */
 func (n *Node) Get(key string) ([]byte, error) {
 	if !n.IsAlive {

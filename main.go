@@ -35,7 +35,7 @@ func main() {
 	testStabilization(node1, node2)
 
 	printSeparator()
-	testPut(node1, node2)
+	testPutAndGet(node1, node2)
 
 	// Core DHT functionalities: Put, Get
 
@@ -143,9 +143,11 @@ func testStabilization(node1, node2 *chord.Node) {
     }
 }
 
-func testPut(node1, node2 *chord.Node) {
+func testPutAndGet(node1, node2 *chord.Node) {
 	testKey := "test-key"
 	testValue := []byte("test-value")
+
+	/* ---- Put ----*/
 
 	// Try storing on node1
 	err := node1.Put(testKey, testValue)
@@ -170,5 +172,30 @@ func testPut(node1, node2 *chord.Node) {
 		fmt.Printf("Key '%s' found in node2, value: %s\n", testKey, string(value))
 	} else {
 		fmt.Println("Key not found in either node1 or node2")
+	}
+
+	printSeparator()
+
+	/* ---- Get ----*/
+
+	// Try getting through both nodes to verify routing works
+	fmt.Println("\nTesting Get through node1:")
+	if value, err := node1.Get(testKey); err != nil {
+		fmt.Printf("Error getting through node1: %v\n", err)
+	} else {
+		fmt.Printf("Successfully retrieved value through node1: %s\n", string(value))
+	}
+	
+	fmt.Println("\nTesting Get through node2:")
+	if value, err := node2.Get(testKey); err != nil {
+		fmt.Printf("Error getting through node2: %v\n", err)
+	} else {
+		fmt.Printf("Successfully retrieved value through node2: %s\n", string(value))
+	}
+	
+	// Test getting a non-existent key
+	fmt.Println("\nTesting Get with non-existent key:")
+	if _, err := node1.Get("non-existent-key"); err != nil {
+		fmt.Printf("Expected error getting non-existent key: %v\n", err)
 	}
 }

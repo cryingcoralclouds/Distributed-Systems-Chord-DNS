@@ -34,6 +34,7 @@ func (s *HTTPNodeServer) SetupRoutes() *http.ServeMux {
     mux.HandleFunc("/predecessor", s.handleGetPredecessor)
 	mux.HandleFunc("/notify", s.handleNotify)
 	mux.HandleFunc("/store/", s.handleStoreKey)
+	mux.HandleFunc("/key/", s.handleGetKey)
 
     return mux
 }
@@ -176,4 +177,39 @@ func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) 
 	s.node.Versions[key] = time.Now().UnixNano()
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPNodeServer) handleGetKey(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    // Parse the key from the URL path
+    key := r.URL.Path[len("/key/"):]
+    if key == "" {
+        http.Error(w, "Key not provided", http.StatusBadRequest)
+        return
+    }
+
+    // Get the value and version
+    value, exists := s.node.Keys[key]
+    if !exists {
+        http.Error(w, "Key not found", http.StatusNotFound)
+        return
+    }
+    
+    version := s.node.Versions[key]
+
+    // Create response
+    response := struct {
+        Value   []byte `json:"value"`
+        Version int64  `json:"version"`
+    }{
+        Value:   value,
+        Version: version,
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
 }

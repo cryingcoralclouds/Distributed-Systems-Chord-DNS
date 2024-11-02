@@ -157,11 +157,38 @@ func (c *HTTPNodeClient) StoreKey(ctx context.Context, key string, value []byte)
 	return nil
 }
 
-// Stub implementations for other required NodeClient interface methods
 func (c *HTTPNodeClient) GetKey(ctx context.Context, key string) ([]byte, int64, error) {
-    return nil, 0, fmt.Errorf("not implemented")
+    req, err := http.NewRequestWithContext(ctx, "GET",
+        fmt.Sprintf("%s/key/%s", c.baseURL, key), nil)
+    if err != nil {
+        return nil, 0, fmt.Errorf("failed to create request: %w", err)
+    }
+
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return nil, 0, fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode == http.StatusNotFound {
+        return nil, 0, ErrKeyNotFound
+    }
+    if resp.StatusCode != http.StatusOK {
+        return nil, 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+    }
+
+    var response struct {
+        Value   []byte `json:"value"`
+        Version int64  `json:"version"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+        return nil, 0, fmt.Errorf("failed to decode response: %w", err)
+    }
+
+    return response.Value, response.Version, nil
 }
 
+// Stub implementations for other required NodeClient interface methods
 func (c *HTTPNodeClient) DeleteKey(ctx context.Context, key string, version int64) error {
     return fmt.Errorf("not implemented")
 }

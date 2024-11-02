@@ -31,15 +31,23 @@ Allows a node to send HTTP req to other nodes' HTTP servers.
 
 
 `messages.go`  
-Contains `NodeMsg` definition and other message related stuff.
+Contains `NodeMsg` definition and other message related stuff.  
 
 `finger_table.go`  
-Contains finger table and routing.
-
+Contains finger table and routing.  
+  
 `utils.go`  
 Contains utility functions.
 - `hashKey` - to generate consistent hashing i.e. same hashes for same input, and different hashes for different inputs.
-- `between` - to check if an ID is in between two IDs.
+- `between` - to check if an ID is in between two IDs.  
+  
+`main.go`  
+Contains local tests for now.
+- `testPutAndGet` tests if:
+    - We can store a key-value pair
+    - We can retrieve the value through any node in the ring
+    - For non-existent keys, correct error is returned
+    - The routing of requests works correctly  
 
 # Working with the code
 If I'm not wrong, we can focus on local implementation and make sure the code works first before incorporating Docker.
