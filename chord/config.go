@@ -1,9 +1,9 @@
 package chord
 
 import (
-    "errors"
-    "math/big"
-    "time"
+	"errors"
+	"math/big"
+	"time"
 )
 
 // Configuration constants
