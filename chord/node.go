@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/big"
 	"time"
+	"math/rand"
 )
 
 // Node represents a node in the Chord ring
@@ -27,6 +28,17 @@ type Node struct {
 
 	// Client to communicate with other nodes
 	Client NodeClient
+}
+
+
+func init() {
+	// Seed the random number generator once at the package level
+	rand.Seed(time.Now().UnixNano())
+}
+
+// randomInt generates a random integer between 0 and max-1
+func randomInt(max int) int {
+	return rand.Intn(max)
 }
 
 func NewNode(addr string, client NodeClient) (*Node, error) {
@@ -58,6 +70,7 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 
 	// Start stabilization
 	node.startStabilize()
+	go node.startFixFingers()
 
     return node, nil
 }
@@ -223,6 +236,13 @@ func (n *Node) Join(introducer *RemoteNode) error {
 	// Set the successor
 	n.Successors[0] = successor
 
+	// Initialize finger table
+    if err := n.initFingerTable(introducer); err != nil {
+        return fmt.Errorf("failed to initialize finger table: %w", err)
+    }
+
+	n.startFixFingers()
+
     // Immediately notify our successor
     self := &RemoteNode{
         ID:      n.ID,
@@ -234,7 +254,7 @@ func (n *Node) Join(introducer *RemoteNode) error {
         log.Printf("[Join] Failed to notify successor during join: %v", err)
     }
     
-    return n.initFingerTable(introducer)
+    return nil
 }
 
 /*
@@ -341,3 +361,36 @@ func (n *Node) startStabilize() {
         }
     }()
 }
+
+func (n *Node) startFixFingers() {
+    ticker := time.NewTicker(FixFingersInterval)
+    go func() {
+        for {
+            select {
+            case <-ticker.C:
+                n.fixFingers()
+            case <-n.ctx.Done():
+                ticker.Stop()
+                return
+            }
+        }
+    }()
+}
+
+
+func (n *Node) fixFingers() {
+    // Generate a random index to update
+    next := randomInt(M)
+    
+    // Calculate the ID for this finger
+    fingerStart := new(big.Int).Add(n.ID, 
+        new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(next)), RingSize))
+    fingerStart.Mod(fingerStart, RingSize)
+    
+    // Find the successor for this ID
+    successor := n.findSuccessorInternal(fingerStart)
+    if successor != nil {
+        n.FingerTable[next] = successor
+    }
+}
+
