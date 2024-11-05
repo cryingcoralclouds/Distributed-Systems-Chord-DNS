@@ -2,6 +2,7 @@ package main
 
 import (
 	"chord_dns/chord"
+	"chord_dns/dns"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,8 +40,28 @@ func main() {
 
 	// Core DHT functionalities: Put, Get
 
-    fmt.Println("\nServers running. Press Ctrl+C to exit.")
-    select {}
+	// Load DNS entries from a file
+	entries, err := dns.LoadDNSFromFile("./dns/data.txt")
+	if err != nil {
+		fmt.Println("Error loading DNS entries:", err)
+		return
+	}
+
+	// Populate the DHT with DNS entries
+	for _, entry := range entries {
+		dns.StoreDNSEntry(node1, entry)
+	}
+
+	// Test DNS lookup
+	// ip, found := RetrieveDNSEntry("google.com")
+	// if found {
+	// 	fmt.Printf("IP address for google.com: %s\n", ip)
+	// } else {
+	// 	fmt.Println("Domain not found in the DHT")
+	// }
+
+	fmt.Println("\nServers running. Press Ctrl+C to exit.")
+	select {}
 }
 
 func printSeparator() {
@@ -108,39 +129,39 @@ func testNodeJoining(node1, node2 *chord.Node) {
 func testStabilization(node1, node2 *chord.Node) {
 	log.Println("Testing stabilization...")
 	fmt.Println("\nNode comparison:")
-    fmt.Printf("Node 1 ID is %s Node 2 ID\n", 
-        chord.CompareNodes(node1.ID, node2.ID))
+	fmt.Printf("Node 1 ID is %s Node 2 ID\n",
+		chord.CompareNodes(node1.ID, node2.ID))
 
-    fmt.Println("\nWaiting for stabilization...")
-	
-    fmt.Println("Waiting for stabilization...")
-    for i := 0; i < 5; i++ {
-        time.Sleep(2 * time.Second)
-        
-        fmt.Printf("\nIteration %d:\n", i+1)
-        
-        // Node 1 details
-        fmt.Printf("\nNode 1 (ID: %s, Address: %s):\n", node1.ID, node1.Address)
-        if node1.Predecessor != nil {
-            fmt.Printf("  Predecessor: %s (Address: %s)\n", 
-                node1.Predecessor.ID, node1.Predecessor.Address)
-        } else {
-            fmt.Println("  Predecessor: nil")
-        }
-        fmt.Printf("  Successor: %s (Address: %s)\n", 
-            node1.Successors[0].ID, node1.Successors[0].Address)
+	fmt.Println("\nWaiting for stabilization...")
 
-        // Node 2 details
-        fmt.Printf("\nNode 2 (ID: %s, Address: %s):\n", node2.ID, node2.Address)
-        if node2.Predecessor != nil {
-            fmt.Printf("  Predecessor: %s (Address: %s)\n", 
-                node2.Predecessor.ID, node2.Predecessor.Address)
-        } else {
-            fmt.Println("  Predecessor: nil")
-        }
-        fmt.Printf("  Successor: %s (Address: %s)\n", 
-            node2.Successors[0].ID, node2.Successors[0].Address)
-    }
+	fmt.Println("Waiting for stabilization...")
+	for i := 0; i < 5; i++ {
+		time.Sleep(2 * time.Second)
+
+		fmt.Printf("\nIteration %d:\n", i+1)
+
+		// Node 1 details
+		fmt.Printf("\nNode 1 (ID: %s, Address: %s):\n", node1.ID, node1.Address)
+		if node1.Predecessor != nil {
+			fmt.Printf("  Predecessor: %s (Address: %s)\n",
+				node1.Predecessor.ID, node1.Predecessor.Address)
+		} else {
+			fmt.Println("  Predecessor: nil")
+		}
+		fmt.Printf("  Successor: %s (Address: %s)\n",
+			node1.Successors[0].ID, node1.Successors[0].Address)
+
+		// Node 2 details
+		fmt.Printf("\nNode 2 (ID: %s, Address: %s):\n", node2.ID, node2.Address)
+		if node2.Predecessor != nil {
+			fmt.Printf("  Predecessor: %s (Address: %s)\n",
+				node2.Predecessor.ID, node2.Predecessor.Address)
+		} else {
+			fmt.Println("  Predecessor: nil")
+		}
+		fmt.Printf("  Successor: %s (Address: %s)\n",
+			node2.Successors[0].ID, node2.Successors[0].Address)
+	}
 }
 
 func testPutAndGet(node1, node2 *chord.Node) {
@@ -185,14 +206,14 @@ func testPutAndGet(node1, node2 *chord.Node) {
 	} else {
 		fmt.Printf("Successfully retrieved value through node1: %s\n", string(value))
 	}
-	
+
 	fmt.Println("\nTesting Get through node2:")
 	if value, err := node2.Get(testKey); err != nil {
 		fmt.Printf("Error getting through node2: %v\n", err)
 	} else {
 		fmt.Printf("Successfully retrieved value through node2: %s\n", string(value))
 	}
-	
+
 	// Test getting a non-existent key
 	fmt.Println("\nTesting Get with non-existent key:")
 	if _, err := node1.Get("non-existent-key"); err != nil {
