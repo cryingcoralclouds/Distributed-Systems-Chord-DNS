@@ -2,6 +2,7 @@ package main
 
 import (
 	"chord_dns/chord"
+	"chord_dns/dns"
 	"fmt"
 	"log"
 	"net/http"
@@ -36,6 +37,8 @@ func main() {
 
 	printSeparator()
 	testPutAndGet(node1, node2)
+
+	// Core DHT functionalities: Put, Get
 
 	fmt.Println("\nServers running. Press Ctrl+C to exit.")
 	select {}
