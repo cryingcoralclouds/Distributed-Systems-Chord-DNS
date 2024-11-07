@@ -419,16 +419,16 @@ func (n *Node) startFixFingers() {
 }
 
 func (n *Node) fixFingers() {
-	for i := 1; i < 5; i++ {	// temporarily change from len(n.FingerTable) to 5
+	for i := 1; i < len(n.FingerTable); i++ { // temporarily change from len(n.FingerTable) to 5
 		// Find the start of the ith finger
 		start := n.ID.Add(n.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i-1)), nil))
 		successor := n.findSuccessorInternal(start)
 
+		log.Printf("n %d", n.ID)
+		log.Printf("start: %d", start)
+
 		if successor != nil {
 			n.FingerTable[i] = successor
-			log.Printf("Finger %d updated to node %s (Address: %s)", i, successor.ID, successor.Address)
-		} else {
-			log.Printf("Finger %d not updated (successor not found)", i)
 		}
 	}
 }

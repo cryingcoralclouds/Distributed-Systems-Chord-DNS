@@ -120,7 +120,17 @@ Currently, we are experiencing an issue where the print statements for the finge
 ## To see outputs in the terminal
 1) To run main file, from the parent directory run
     ```
-    go run main.go
+    # Run all tests with 10 nodes
+    go run main.go -test=all
+
+    # Run just the join test with 5 nodes
+    go run main.go -nodes=5 -test=join
+
+    # Run put/get test with custom base port
+    go run main.go -baseport=9001 -test=putget
+
+    # Run stabilization test with 15 nodes
+    go run main.go -nodes=15 -test=stabilize
     ```
 2) (Ignore test folder for now, don't really need it) To see test outputs, from the parent directory run
     ```
