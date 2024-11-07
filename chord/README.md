@@ -4,13 +4,15 @@ Contains constants and variables.
 
 `node.go`  
 Contains `Node` struct definition and core functions.  
-- `NewNode` - to initialise a node.
+- `NewNode` - to initialize a node.
 - `Join` - to allow a new node to join the ring.
 - `A` - to locate the node responsible for a specific key.
 - `Get` - Retrieves the value associated with a key by finding the responsible node.
 - `Put` - Stores a key-value pair on the node responsible for the key's hash, either locally or by forwarding the request to the correct node.
 - `stabilize()` - Periodically checks and updates the node's successor and notifies it of the node’s presence.
 - `startStabilize()` - Starts a periodic loop that calls stabilize at regular intervals.
+- `fixFingers()` - Periodically refreshes entries in the finger table to ensure they point to the correct successors.
+- `startFixFingers()` - Starts a periodic loop that calls fixFingers at regular intervals to maintain the finger table.
 
 `remote_node.go`  
 Contains the concept of remote node and interactions over the 
@@ -47,7 +49,7 @@ Contains utility functions.
 For now, it contains local tests and no Docker tests yet. Tested with only 2 nodes.
 - `testPing` tests if:
     - Each node's HTTP server is running.
-    - Each node responds the ping req with an HTTP 200 status to indicate that it's alive.
+    - Each node responds to the ping request with an HTTP 200 status to indicate that it's alive.
 - `testNodeJoining` tests if:
     - node2 can join the ring through node1, which acts as an introducer.
     - node2 successfully establishes successor and predecessor.
@@ -56,10 +58,14 @@ For now, it contains local tests and no Docker tests yet. Tested with only 2 nod
     - Over time, node1 and node2 maintain accurate knowledge of each other's positions.
     - Nodes' finger table and successor lists are updated correctly.
 - `testPutAndGet` tests if:
-    - We can store a key-value pair
-    - We can retrieve the value through any node in the ring
-    - For non-existent keys, correct error is returned
-    - The routing of requests works correctly  
+    - We can store a key-value pair.
+    - We can retrieve the value through any node in the ring.
+    - For non-existent keys, the correct error is returned.
+    - The routing of requests works correctly.
+- `testFingerTable` tests if:
+    - The finger table entries for each node are correctly populated.
+    - It prints the contents of the finger table for both nodes, showing which nodes are referenced in the finger table and if any entries are `nil`.
+    - This helps verify that the finger table maintenance is functioning as expected and that nodes have accurate routing information.
 
 # Working with the code
 If I'm not wrong, we can focus on local implementation and make sure the code works first before incorporating Docker.
@@ -80,11 +86,18 @@ Using goroutines for HTTP servers
 - Each node needs to handle incoming HTTP requests from other nodes while also performing background tasks (e.g., stabilizing, fixing finger tables, checking the predecessor).
 - Running the HTTP server in a separate goroutine allows each node to accept requests concurrently without blocking other tasks.
 
-## Next steps
+## Next Steps
 According to Claude, these are the next steps in order of priority:  
-1) Periodic Maintenance Routines  
-    - fixFingers() to periodically refresh finger table entries
-    - checkPredecessor() to detect node failures
+1) **Periodic Maintenance Routines**  
+    - **fixFingers()**: This function is designed to periodically refresh the entries in the finger table to ensure they point to the correct successors. 
+    - **checkPredecessor()**: This function is intended to detect node failures and maintain the integrity of the network.
+
+While these functions are already implemented, they require thorough testing to ensure they operate correctly, especially since they are called within goroutines. 
+
+### Current Challenges
+Currently, we are experiencing an issue where the print statements for the finger tables are returning null or blank entries. This could be attributed to several factors:
+- **Timing Issues**: The finger table may not be updated in time before the print statements are executed, particularly in a scenario with only two nodes. The limited number of nodes may not provide enough data for the finger table to populate correctly.
+- **Update Mechanism**: There may be a problem with how the finger table is being updated, which could lead to incomplete or incorrect entries.
 
 2) HTTP Transport Layer
     - Set up HTTP endpoints and implement request/response handling for DeleteKey and TransferKey (by Checkpoint 3)

@@ -1,5 +1,3 @@
-package chord
-
 import (
 	"fmt"
 	"log"

@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const CheckPredecessorInterval = time.Second * 5 // Set your desired interval
+
 // Node represents a node in the Chord ring
 type Node struct {
 	ID                *big.Int
@@ -58,6 +60,8 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 
 	// Start stabilization
 	node.startStabilize()
+	node.startFixFingers()
+	node.StartCheckPredecessor()
 
     return node, nil
 }
@@ -200,6 +204,8 @@ func (n *Node) Join(introducer *RemoteNode) error {
             Address: n.Address,
             Client:  n.Client,
         }
+		// Start finger table maintenance for the first node
+        n.startFixFingers()
         return nil
     }
     
@@ -234,9 +240,16 @@ func (n *Node) Join(introducer *RemoteNode) error {
         log.Printf("[Join] Failed to notify successor during join: %v", err)
     }
     
-    return n.initFingerTable(introducer)
-}
+    // Initialize finger table
+    if err := n.initFingerTable(introducer); err != nil {
+        return fmt.Errorf("failed to initialize finger table: %w", err)
+    }
 
+    // Start finger table maintenance after initialization
+    n.startFixFingers()
+
+    return nil
+}
 /*
 Leave method:
 Handles the removal of a node from the ring.
@@ -328,16 +341,86 @@ func (n *Node) stabilize() {
 
 // To loop stabilization
 func (n *Node) startStabilize() {
-    ticker := time.NewTicker(StabilizeInterval)
+    stabilizeTicker := time.NewTicker(StabilizeInterval)
+    fingerTicker := time.NewTicker(StabilizeInterval * 2) // Fix fingers less frequently
+    
+    go func() {
+        for {
+            select {
+            case <-stabilizeTicker.C:
+                n.stabilize()
+            case <-fingerTicker.C:
+                n.startFixFingers()
+            case <-n.ctx.Done():
+                stabilizeTicker.Stop()
+                fingerTicker.Stop()
+                return
+            }
+        }
+    }()
+}
+// checkPredecessor checks if the predecessor is alive and updates the node's state accordingly.
+func (n *Node) checkPredecessor() {
+    if n.Predecessor == nil {
+        return // No predecessor to check
+    }
+
+    // Attempt to ping the predecessor
+    ctx, cancel := context.WithTimeout(n.ctx, time.Second)
+    defer cancel()
+
+    err := n.Predecessor.Client.Ping(ctx) 
+    if err != nil {
+        log.Printf("[checkPredecessor] Predecessor %s is not alive: %v", n.Predecessor.ID, err)
+        n.Predecessor = nil // Update the predecessor to nil if it's not alive
+    } else {
+        log.Printf("[checkPredecessor] Predecessor %s is alive", n.Predecessor.ID)
+    }
+}
+
+// startCheckPredecessor starts a periodic check for the predecessor's status.
+func (n *Node) StartCheckPredecessor() {
+    ticker := time.NewTicker(CheckPredecessorInterval) // Define your interval
     go func() {
         for {
             select {
             case <-ticker.C:
-                n.stabilize()
+                n.checkPredecessor()
             case <-n.ctx.Done():
                 ticker.Stop()
                 return
             }
         }
     }()
+}
+
+func (n *Node) startFixFingers() {
+    go func() {
+        ticker := time.NewTicker(time.Second * 5) // Adjust interval as needed
+        defer ticker.Stop()
+
+        for {
+            select {
+            case <-ticker.C:
+                n.fixFingers()
+            case <-n.ctx.Done():
+                return
+            }
+        }
+    }()
+}
+
+func (n *Node) fixFingers() {
+    for i := 1; i < len(n.FingerTable); i++ {
+        // Find the start of the ith finger
+        start := n.ID.Add(n.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i-1)), nil))
+        successor := n.findSuccessorInternal(start)
+
+        if successor != nil {
+            n.FingerTable[i] = successor
+            log.Printf("Finger %d updated to node %s (Address: %s)", i, successor.ID, successor.Address)
+        } else {
+            log.Printf("Finger %d not updated (successor not found)", i)
+        }
+    }
 }

@@ -9,39 +9,38 @@ import (
 )
 
 func main() {
-	addr1 := ":8001"
-	addr2 := ":8002"
+    addr1 := ":8001"
+    addr2 := ":8002"
 
-	node1, server1 := createNode(addr1)
-	node2, server2 := createNode(addr2)
+    node1, server1 := createNode(addr1)
+    node2, server2 := createNode(addr2)
 
-	// Start servers
-	startServer(server1, addr1)
-	startServer(server2, addr2)
+    // Start servers
+    startServer(server1, addr1)
+    startServer(server2, addr2)
 
-	// Wait for servers to start
-	time.Sleep(time.Second)
+    // Wait for servers to start
+    time.Sleep(time.Second)
 
-	// Run tests
+    printSeparator()
+    testPing()
 
-	// Basic node operations: Ping, Join, Stabilization
-	printSeparator()
-	testPing()
+    printSeparator()
+    testNodeJoining(node1, node2)
 
-	printSeparator()
-	testNodeJoining(node1, node2)
+    printSeparator()
+    testStabilization(node1, node2)
 
-	printSeparator()
-	testStabilization(node1, node2)
-
-	printSeparator()
-	testPutAndGet(node1, node2)
-
-	// Core DHT functionalities: Put, Get
+    printSeparator()
+	testFingerTable(node1, node2)
+    
+    printSeparator()
+    testPutAndGet(node1, node2)
 
     fmt.Println("\nServers running. Press Ctrl+C to exit.")
     select {}
 }
+
 
 func printSeparator() {
 	fmt.Println("\n--------------------------\n")
@@ -199,3 +198,33 @@ func testPutAndGet(node1, node2 *chord.Node) {
 		fmt.Printf("Expected error getting non-existent key: %v\n", err)
 	}
 }
+
+	// Print finger table entries for both nodes
+	fmt.Println("\nNode 1 Finger Table:")
+	for i := 0; i < chord.M; i++ {
+		start := new(big.Int).Add(node1.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i)), chord.RingSize))
+		start.Mod(start, chord.RingSize)
+		
+		if node1.FingerTable[i] != nil {
+			fmt.Printf("Finger[%d] - Start: %s, Node: %s\n", 
+				i, start.String(), node1.FingerTable[i].ID.String())
+		} else {
+			fmt.Printf("Finger[%d] - Start: %s, Node: nil\n", 
+				i, start.String())
+		}
+	}
+
+	fmt.Println("\nNode 2 Finger Table:")
+	for i := 0; i < chord.M; i++ {
+		start := new(big.Int).Add(node2.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i)), chord.RingSize))
+		start.Mod(start, chord.RingSize)
+		
+		if node2.FingerTable[i] != nil {
+			fmt.Printf("Finger[%d] - Start: %s, Node: %s\n", 
+				i, start.String(), node2.FingerTable[i].ID.String())
+		} else {
+			fmt.Printf("Finger[%d] - Start: %s, Node: nil\n", 
+				i, start.String())
+		}
+	}
+

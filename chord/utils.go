@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"log"
 	"math/big"
+	"math/rand"
 )
 
 // Takes a string input and returns its SHA-1 hash as a big integer. This is used for generating unique identifiers for keys and nodes.
@@ -61,4 +62,8 @@ func CompareNodes(n1, n2 *big.Int) string {
         return "greater than"
     }
     return "equal to"
+}
+
+func randomInt(max int) int {
+    return rand.Intn(max)
 }
