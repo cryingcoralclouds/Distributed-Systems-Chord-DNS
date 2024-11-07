@@ -32,7 +32,7 @@ func main() {
 	testStabilization(node1, node2)
 
 	printSeparator()
-	testFingerTable(node1, node2)
+	// testFingerTable(node1, node2)
 
 	printSeparator()
 	testPutAndGet(node1, node2)
@@ -166,9 +166,9 @@ func testPutAndGet(node1, node2 *chord.Node) {
 	time.Sleep(time.Second)
 
 	// Print where the key ended up
-	if value, exists := node1.Keys[testKey]; exists {
+	if value, exists := node1.DHT[testKey]; exists {
 		fmt.Printf("Key '%s' found in node1, value: %s\n", testKey, string(value))
-	} else if value, exists := node2.Keys[testKey]; exists {
+	} else if value, exists := node2.DHT[testKey]; exists {
 		fmt.Printf("Key '%s' found in node2, value: %s\n", testKey, string(value))
 	} else {
 		fmt.Println("Key not found in either node1 or node2")

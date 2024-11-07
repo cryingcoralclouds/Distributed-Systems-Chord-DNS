@@ -20,7 +20,7 @@ type Node struct {
 	Successors        []*RemoteNode
 	Predecessor       *RemoteNode
 	FingerTable       [M]*RemoteNode
-	Keys              map[string][]byte
+	DHT               map[string][]byte
 	Versions          map[string]int64
 	ReplicationStatus map[string][]*RemoteNode
 
@@ -37,11 +37,6 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// randomInt generates a random integer between 0 and max-1
-func randomInt(max int) int {
-	return rand.Intn(max)
-}
-
 func NewNode(addr string, client NodeClient) (*Node, error) {
 	if addr == "" {
 		return nil, errors.New("network address cannot be empty")
@@ -53,7 +48,7 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 		Address:           addr,
 		IsAlive:           true,
 		Successors:        make([]*RemoteNode, NumSuccessors),
-		Keys:              make(map[string][]byte),
+		DHT:               make(map[string][]byte),
 		Versions:          make(map[string]int64),
 		ReplicationStatus: make(map[string][]*RemoteNode),
 		ctx:               ctx,
@@ -95,7 +90,7 @@ func (n *Node) Put(key string, value []byte) error {
 
 	// If we are the responsible node, store locally
 	if responsible.ID.Cmp(n.ID) == 0 {
-		n.Keys[key] = value
+		n.DHT[key] = value
 		n.Versions[key] = time.Now().UnixNano()
 		return nil
 	}
@@ -155,7 +150,7 @@ func (n *Node) Get(key string) ([]byte, error) {
 
 	// If we are the responsible node, return locally stored value
 	if responsible.ID.Cmp(n.ID) == 0 {
-		value, exists := n.Keys[key]
+		value, exists := n.DHT[key]
 		if !exists {
 			return nil, ErrKeyNotFound
 		}
@@ -256,12 +251,6 @@ func (n *Node) Join(introducer *RemoteNode) error {
 	if err := n.Successors[0].Client.Notify(ctx, self); err != nil {
 		log.Printf("[Join] Failed to notify successor during join: %v", err)
 	}
-
-	// Initialize finger table
-	if err := nil; err != nil {
-		return fmt.Errorf("failed to initialize finger table: %w", err)
-	}
-
 	// Start finger table maintenance after initialization
 	n.startFixFingers()
 
@@ -302,7 +291,7 @@ func (n *Node) Leave() error {
 // Collects keys that belong to the node and prepares them for transfer to another node.
 func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	keys := make(map[string][]byte)
-	for key, value := range n.Keys {
+	for key, value := range n.DHT {
 		hash := HashKey(key)
 		if Between(hash, start, end, true) {
 			keys[key] = value
@@ -430,7 +419,7 @@ func (n *Node) startFixFingers() {
 }
 
 func (n *Node) fixFingers() {
-	for i := 1; i < len(n.FingerTable); i++ {
+	for i := 1; i < 5; i++ {	// temporarily change from len(n.FingerTable) to 5
 		// Find the start of the ith finger
 		start := n.ID.Add(n.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i-1)), nil))
 		successor := n.findSuccessorInternal(start)
@@ -441,36 +430,5 @@ func (n *Node) fixFingers() {
 		} else {
 			log.Printf("Finger %d not updated (successor not found)", i)
 		}
-	}
-}
-
-func (n *Node) startFixFingers() {
-	ticker := time.NewTicker(FixFingersInterval)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				n.fixFingers()
-			case <-n.ctx.Done():
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-}
-
-func (n *Node) fixFingers() {
-	// Generate a random index to update
-	next := randomInt(M)
-
-	// Calculate the ID for this finger
-	fingerStart := new(big.Int).Add(n.ID,
-		new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(next)), RingSize))
-	fingerStart.Mod(fingerStart, RingSize)
-
-	// Find the successor for this ID
-	successor := n.findSuccessorInternal(fingerStart)
-	if successor != nil {
-		n.FingerTable[next] = successor
 	}
 }

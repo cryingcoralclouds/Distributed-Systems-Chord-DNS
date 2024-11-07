@@ -173,7 +173,7 @@ func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Store the key-value pair
-	s.node.Keys[key] = value
+	s.node.DHT[key] = value
 	s.node.Versions[key] = time.Now().UnixNano()
 
 	w.WriteHeader(http.StatusOK)
@@ -193,7 +193,7 @@ func (s *HTTPNodeServer) handleGetKey(w http.ResponseWriter, r *http.Request) {
     }
 
     // Get the value and version
-    value, exists := s.node.Keys[key]
+    value, exists := s.node.DHT[key]
     if !exists {
         http.Error(w, "Key not found", http.StatusNotFound)
         return
