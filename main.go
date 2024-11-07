@@ -9,38 +9,39 @@ import (
 )
 
 func main() {
-    addr1 := ":8001"
-    addr2 := ":8002"
+	addr1 := ":8001"
+	addr2 := ":8002"
 
-    node1, server1 := createNode(addr1)
-    node2, server2 := createNode(addr2)
+	node1, server1 := createNode(addr1)
+	node2, server2 := createNode(addr2)
 
-    // Start servers
-    startServer(server1, addr1)
-    startServer(server2, addr2)
+	// Start servers
+	startServer(server1, addr1)
+	startServer(server2, addr2)
 
-    // Wait for servers to start
-    time.Sleep(time.Second)
+	// Wait for servers to start
+	time.Sleep(time.Second)
 
-    printSeparator()
-    testPing()
+	printSeparator()
+	testPing()
 
-    printSeparator()
-    testNodeJoining(node1, node2)
+	printSeparator()
+	testNodeJoining(node1, node2)
 
-    printSeparator()
-    testStabilization(node1, node2)
+	printSeparator()
+	testStabilization(node1, node2)
 
-    printSeparator()
+	printSeparator()
 	testFingerTable(node1, node2)
-    
-    printSeparator()
-    testPutAndGet(node1, node2)
 
-    fmt.Println("\nServers running. Press Ctrl+C to exit.")
-    select {}
+	printSeparator()
+	testPutAndGet(node1, node2)
+
+	// Core DHT functionalities: Put, Get
+
+	fmt.Println("\nServers running. Press Ctrl+C to exit.")
+	select {}
 }
-
 
 func printSeparator() {
 	fmt.Println("\n--------------------------\n")
@@ -107,39 +108,39 @@ func testNodeJoining(node1, node2 *chord.Node) {
 func testStabilization(node1, node2 *chord.Node) {
 	log.Println("Testing stabilization...")
 	fmt.Println("\nNode comparison:")
-    fmt.Printf("Node 1 ID is %s Node 2 ID\n", 
-        chord.CompareNodes(node1.ID, node2.ID))
+	fmt.Printf("Node 1 ID is %s Node 2 ID\n",
+		chord.CompareNodes(node1.ID, node2.ID))
 
-    fmt.Println("\nWaiting for stabilization...")
-	
-    fmt.Println("Waiting for stabilization...")
-    for i := 0; i < 5; i++ {
-        time.Sleep(2 * time.Second)
-        
-        fmt.Printf("\nIteration %d:\n", i+1)
-        
-        // Node 1 details
-        fmt.Printf("\nNode 1 (ID: %s, Address: %s):\n", node1.ID, node1.Address)
-        if node1.Predecessor != nil {
-            fmt.Printf("  Predecessor: %s (Address: %s)\n", 
-                node1.Predecessor.ID, node1.Predecessor.Address)
-        } else {
-            fmt.Println("  Predecessor: nil")
-        }
-        fmt.Printf("  Successor: %s (Address: %s)\n", 
-            node1.Successors[0].ID, node1.Successors[0].Address)
+	fmt.Println("\nWaiting for stabilization...")
 
-        // Node 2 details
-        fmt.Printf("\nNode 2 (ID: %s, Address: %s):\n", node2.ID, node2.Address)
-        if node2.Predecessor != nil {
-            fmt.Printf("  Predecessor: %s (Address: %s)\n", 
-                node2.Predecessor.ID, node2.Predecessor.Address)
-        } else {
-            fmt.Println("  Predecessor: nil")
-        }
-        fmt.Printf("  Successor: %s (Address: %s)\n", 
-            node2.Successors[0].ID, node2.Successors[0].Address)
-    }
+	fmt.Println("Waiting for stabilization...")
+	for i := 0; i < 5; i++ {
+		time.Sleep(2 * time.Second)
+
+		fmt.Printf("\nIteration %d:\n", i+1)
+
+		// Node 1 details
+		fmt.Printf("\nNode 1 (ID: %s, Address: %s):\n", node1.ID, node1.Address)
+		if node1.Predecessor != nil {
+			fmt.Printf("  Predecessor: %s (Address: %s)\n",
+				node1.Predecessor.ID, node1.Predecessor.Address)
+		} else {
+			fmt.Println("  Predecessor: nil")
+		}
+		fmt.Printf("  Successor: %s (Address: %s)\n",
+			node1.Successors[0].ID, node1.Successors[0].Address)
+
+		// Node 2 details
+		fmt.Printf("\nNode 2 (ID: %s, Address: %s):\n", node2.ID, node2.Address)
+		if node2.Predecessor != nil {
+			fmt.Printf("  Predecessor: %s (Address: %s)\n",
+				node2.Predecessor.ID, node2.Predecessor.Address)
+		} else {
+			fmt.Println("  Predecessor: nil")
+		}
+		fmt.Printf("  Successor: %s (Address: %s)\n",
+			node2.Successors[0].ID, node2.Successors[0].Address)
+	}
 }
 
 func testPutAndGet(node1, node2 *chord.Node) {
@@ -184,14 +185,14 @@ func testPutAndGet(node1, node2 *chord.Node) {
 	} else {
 		fmt.Printf("Successfully retrieved value through node1: %s\n", string(value))
 	}
-	
+
 	fmt.Println("\nTesting Get through node2:")
 	if value, err := node2.Get(testKey); err != nil {
 		fmt.Printf("Error getting through node2: %v\n", err)
 	} else {
 		fmt.Printf("Successfully retrieved value through node2: %s\n", string(value))
 	}
-	
+
 	// Test getting a non-existent key
 	fmt.Println("\nTesting Get with non-existent key:")
 	if _, err := node1.Get("non-existent-key"); err != nil {
@@ -199,32 +200,28 @@ func testPutAndGet(node1, node2 *chord.Node) {
 	}
 }
 
+func testFingerTable(node1, node2 *chord.Node) {
+	fmt.Println("Testing finger table maintenance...")
+
+	// Wait for finger tables to be populated
+	time.Sleep(5 * time.Second)
+
 	// Print finger table entries for both nodes
 	fmt.Println("\nNode 1 Finger Table:")
-	for i := 0; i < chord.M; i++ {
-		start := new(big.Int).Add(node1.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i)), chord.RingSize))
-		start.Mod(start, chord.RingSize)
-		
-		if node1.FingerTable[i] != nil {
-			fmt.Printf("Finger[%d] - Start: %s, Node: %s\n", 
-				i, start.String(), node1.FingerTable[i].ID.String())
+	for i, finger := range node1.FingerTable {
+		if finger != nil {
+			fmt.Printf("Entry %d -> Node %s (Address: %s)\n", i, finger.ID, finger.Address)
 		} else {
-			fmt.Printf("Finger[%d] - Start: %s, Node: nil\n", 
-				i, start.String())
+			fmt.Printf("Entry %d -> nil\n", i)
 		}
 	}
 
 	fmt.Println("\nNode 2 Finger Table:")
-	for i := 0; i < chord.M; i++ {
-		start := new(big.Int).Add(node2.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i)), chord.RingSize))
-		start.Mod(start, chord.RingSize)
-		
-		if node2.FingerTable[i] != nil {
-			fmt.Printf("Finger[%d] - Start: %s, Node: %s\n", 
-				i, start.String(), node2.FingerTable[i].ID.String())
+	for i, finger := range node2.FingerTable {
+		if finger != nil {
+			fmt.Printf("Entry %d -> Node %s (Address: %s)\n", i, finger.ID, finger.Address)
 		} else {
-			fmt.Printf("Finger[%d] - Start: %s, Node: nil\n", 
-				i, start.String())
+			fmt.Printf("Entry %d -> nil\n", i)
 		}
 	}
-
+}
