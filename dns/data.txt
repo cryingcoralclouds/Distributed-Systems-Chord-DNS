@@ -1,6 +1,0 @@
-google.com 172.217.20.206
-googleapis.com 142.250.74.234
-facebook.com 163.70.128.35 
-googletagmanager.com 142.250.184.232
-youtube.com 142.250.178.14 
-instagram.com 157.240.214.174 
