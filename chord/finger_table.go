@@ -1,9 +1,11 @@
 package chord
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/big"
+	"time"
 )
 
 /*
@@ -50,6 +52,29 @@ func (n *Node) findSuccessorInternal(id *big.Int) *RemoteNode {
 	return succ
 }
 
+func (n *Node) FindSuccessor(ctx context.Context, id *big.Int) (*RemoteNode, error) {
+	if n.Successors[0] != nil && Between(id, n.ID, n.Successors[0].ID, true) {
+		return n.Successors[0], nil
+	}
+
+	closest := n.closestPrecedingNode(id)
+	if closest == nil || closest.Client == nil {
+		log.Printf("Fallback: closest preceding node or its client is nil")
+		return n.Successors[0], fmt.Errorf("closest preceding node is nil")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	successor, err := closest.Client.FindSuccessor(ctx, id)
+	if err != nil {
+		log.Printf("Error querying closest preceding node: %v", err)
+		return n.Successors[0], fmt.Errorf("could not find successor")
+	}
+
+	return successor, nil
+}
+
 // Returns the closest preceding node in the finger table for a given ID, which helps in routing requests.
 func (n *Node) closestPrecedingNode(id *big.Int) *RemoteNode {
 	for i := M - 1; i >= 0; i-- {
@@ -66,10 +91,20 @@ func (n *Node) initFingerTable(introducer *RemoteNode) error {
 		start := new(big.Int).Add(n.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i)), RingSize))
 		start.Mod(start, RingSize)
 
-		successor, err := introducer.Client.FindSuccessor(n.ctx, start)
-		if err != nil {
-			return fmt.Errorf("failed to initialize finger table at position %d: %w", i, err)
+		var successor *RemoteNode
+		var err error
+
+		if introducer != nil {
+			// Use the introducer to find the successor for this finger entry
+			successor, err = introducer.Client.FindSuccessor(n.ctx, start)
+			if err != nil {
+				return fmt.Errorf("failed to initialize finger table at position %d: %w", i, err)
+			}
+		} else {
+			// If no introducer, use the node's current successor
+			successor = n.Successors[0]
 		}
+
 		n.FingerTable[i] = successor
 	}
 
