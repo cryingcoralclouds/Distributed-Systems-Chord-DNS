@@ -8,43 +8,48 @@ import (
 	"time"
 )
 
-func main() {
-	addr1 := ":8001"
-	addr2 := ":8002"
+const (
+	basePort = 8001
+	numNodes = 10
+)
 
-	node1, server1 := createNode(addr1)
-	node2, server2 := createNode(addr2)
-
-	// Start servers
-	startServer(server1, addr1)
-	startServer(server2, addr2)
-
-	// Wait for servers to start
-	time.Sleep(time.Second)
-
-	// Run tests
-
-	// Basic node operations: Ping, Join, Stabilization
-	printSeparator()
-	testPing()
-
-	printSeparator()
-	testNodeJoining(node1, node2)
-
-	printSeparator()
-	testStabilization(node1, node2)
-
-	printSeparator()
-	testPutAndGet(node1, node2)
-
-	// Core DHT functionalities: Put, Get
-
-    fmt.Println("\nServers running. Press Ctrl+C to exit.")
-    select {}
+type ChordNode struct {
+	node   *chord.Node
+	server *chord.HTTPNodeServer
 }
 
-func printSeparator() {
-	fmt.Println("\n--------------------------\n")
+func main() {
+	// Create nodes
+	nodes := make([]ChordNode, numNodes)
+	for i := 0; i < numNodes; i++ {
+		addr := fmt.Sprintf(":%d", basePort+i)
+		node, server := createNode(addr)
+		nodes[i] = ChordNode{node: node, server: server}
+		startServer(server, addr)
+	}
+
+	// Wait for servers to start
+	time.Sleep(2 * time.Second)
+
+	// Run tests
+	printSeparator("Testing Node Connectivity")
+	testPing()
+
+	printSeparator("Testing Node Joining")
+	testNodeJoining(nodes)
+
+	printSeparator("Testing Stabilization")
+	testStabilization(nodes)
+
+	printSeparator("Testing Put and Get Operations")
+	testPutAndGet(nodes)
+
+	fmt.Println("\nServers running. Press Ctrl+C to exit.")
+	select {}
+}
+
+func printSeparator(title string) {
+	fmt.Printf("\n=== %s ===\n\n", title)
 }
 
 func createNode(addr string) (*chord.Node, *chord.HTTPNodeServer) {
@@ -67,13 +72,8 @@ func startServer(server *chord.HTTPNodeServer, addr string) {
 }
 
 func testPing() {
-	fmt.Println("Testing node connectivity...")
-	urls := []string{
-		"http://localhost:8001/ping",
-		"http://localhost:8002/ping",
-	}
-
-	for _, url := range urls {
+	for i := 0; i < numNodes; i++ {
+		url := fmt.Sprintf("http://localhost:%d/ping", basePort+i)
 		resp, err := http.Get(url)
 		if err != nil {
 			fmt.Printf("Error pinging %s: %v\n", url, err)
@@ -82,120 +82,108 @@ func testPing() {
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusOK {
-			fmt.Printf("Successfully pinged %s\n", url)
+			fmt.Printf("Successfully pinged node %d at %s\n", i+1, url)
 		} else {
-			fmt.Printf("Failed to ping %s: status code %d\n", url, resp.StatusCode)
+			fmt.Printf("Failed to ping node %d at %s: status code %d\n", i+1, url, resp.StatusCode)
 		}
 	}
 }
 
-func testNodeJoining(node1, node2 *chord.Node) {
-	log.Println("Testing node joining...")
-
+func testNodeJoining(nodes []ChordNode) {
+	// First node is the introducer
 	introducer := &chord.RemoteNode{
-		ID:      node1.ID,
-		Address: node1.Address,
-		Client:  chord.NewHTTPNodeClient(node1.Address),
+		ID:      nodes[0].node.ID,
+		Address: nodes[0].node.Address,
+		Client:  chord.NewHTTPNodeClient(nodes[0].node.Address),
 	}
 
-	log.Printf("Node 2 trying to join through introducer at %s", node1.Address)
-	if err := node2.Join(introducer); err != nil {
-		log.Fatalf("Node 2 failed to join: %v", err)
+	// Join other nodes through the introducer
+	for i := 1; i < numNodes; i++ {
+		log.Printf("Node %d trying to join through introducer\n", i+1)
+		if err := nodes[i].node.Join(introducer); err != nil {
+			log.Fatalf("Node %d failed to join: %v", i+1, err)
+		}
+		log.Printf("Node %d successfully joined the network\n", i+1)
+		time.Sleep(500 * time.Millisecond) // Brief pause between joins
 	}
-	log.Println("Node 2 successfully joined through Node 1")
 }
 
-func testStabilization(node1, node2 *chord.Node) {
-	log.Println("Testing stabilization...")
-	fmt.Println("\nNode comparison:")
-    fmt.Printf("Node 1 ID is %s Node 2 ID\n", 
-        chord.CompareNodes(node1.ID, node2.ID))
-
-    fmt.Println("\nWaiting for stabilization...")
+func testStabilization(nodes []ChordNode) {
+	fmt.Println("Monitoring network stabilization...")
 	
-    fmt.Println("Waiting for stabilization...")
-    for i := 0; i < 5; i++ {
-        time.Sleep(2 * time.Second)
-        
-        fmt.Printf("\nIteration %d:\n", i+1)
-        
-        // Node 1 details
-        fmt.Printf("\nNode 1 (ID: %s, Address: %s):\n", node1.ID, node1.Address)
-        if node1.Predecessor != nil {
-            fmt.Printf("  Predecessor: %s (Address: %s)\n", 
-                node1.Predecessor.ID, node1.Predecessor.Address)
-        } else {
-            fmt.Println("  Predecessor: nil")
-        }
-        fmt.Printf("  Successor: %s (Address: %s)\n", 
-            node1.Successors[0].ID, node1.Successors[0].Address)
-
-        // Node 2 details
-        fmt.Printf("\nNode 2 (ID: %s, Address: %s):\n", node2.ID, node2.Address)
-        if node2.Predecessor != nil {
-            fmt.Printf("  Predecessor: %s (Address: %s)\n", 
-                node2.Predecessor.ID, node2.Predecessor.Address)
-        } else {
-            fmt.Println("  Predecessor: nil")
-        }
-        fmt.Printf("  Successor: %s (Address: %s)\n", 
-            node2.Successors[0].ID, node2.Successors[0].Address)
-    }
+	for iteration := 0; iteration < 5; iteration++ {
+		time.Sleep(2 * time.Second)
+		fmt.Printf("\nIteration %d:\n", iteration+1)
+		
+		for i, node := range nodes {
+			fmt.Printf("\nNode %d (ID: %s, Address: %s):\n", i+1, node.node.ID, node.node.Address)
+			
+			if node.node.Predecessor != nil {
+				fmt.Printf("  Predecessor: %s (Address: %s)\n", 
+					node.node.Predecessor.ID, node.node.Predecessor.Address)
+			} else {
+				fmt.Println("  Predecessor: nil")
+			}
+			
+			fmt.Printf("  Successor: %s (Address: %s)\n", 
+				node.node.Successors[0].ID, node.node.Successors[0].Address)
+		}
+	}
 }
 
-func testPutAndGet(node1, node2 *chord.Node) {
-	testKey := "test-key"
-	testValue := []byte("test-value")
-
-	/* ---- Put ----*/
-
-	// Try storing on node1
-	err := node1.Put(testKey, testValue)
-	if err != nil {
-		log.Fatalf("Failed to put key-value: %v", err)
+func testPutAndGet(nodes []ChordNode) {
+	testKeys := []string{
+		"test-key-1",
+		"test-key-2",
+		"test-key-3",
+	}
+	testValues := []string{
+		"test-value-1",
+		"test-value-2",
+		"test-value-3",
 	}
 
-	// Verify the key was stored in the correct node
-	// Get the hash of the key
-	keyHash := chord.HashKey(testKey)
-	fmt.Printf("Key hash: %s\n", keyHash.String())
-	fmt.Printf("Node1 ID: %s\n", node1.ID.String())
-	fmt.Printf("Node2 ID: %s\n", node2.ID.String())
-
-	// Wait a bit then check both nodes
-	time.Sleep(time.Second)
-
-	// Print where the key ended up
-	if value, exists := node1.Keys[testKey]; exists {
-		fmt.Printf("Key '%s' found in node1, value: %s\n", testKey, string(value))
-	} else if value, exists := node2.Keys[testKey]; exists {
-		fmt.Printf("Key '%s' found in node2, value: %s\n", testKey, string(value))
-	} else {
-		fmt.Println("Key not found in either node1 or node2")
+	// Test Put operations
+	fmt.Println("Testing Put operations:")
+	for i, key := range testKeys {
+		// Choose random node to put from
+		nodeIndex := i % numNodes
+		err := nodes[nodeIndex].node.Put(key, []byte(testValues[i]))
+		if err != nil {
+			log.Printf("Failed to put key-value %d: %v\n", i+1, err)
+			continue
+		}
+		fmt.Printf("Successfully stored key '%s' through node %d\n", key, nodeIndex+1)
+		
+		// Print key location info
+		keyHash := chord.HashKey(key)
+		fmt.Printf("Key hash: %s\n", keyHash.String())
 	}
 
-	printSeparator()
+	time.Sleep(2 * time.Second) // Wait for stabilization
 
-	/* ---- Get ----*/
+	// Test Get operations
+	fmt.Println("\nTesting Get operations:")
+	for _, key := range testKeys {
+		// Try getting through different nodes
+		for i := 0; i < 3; i++ {
+			nodeIndex := (i * 3) % numNodes // Test with different nodes
+			value, err := nodes[nodeIndex].node.Get(key)
+			if err != nil {
+				fmt.Printf("Error getting '%s' through node %d: %v\n", 
+					key, nodeIndex+1, err)
+				continue
+			}
+			fmt.Printf("Successfully retrieved '%s' = '%s' through node %d\n", 
+				key, string(value), nodeIndex+1)
+			break
+		}
+	}
 
-	// Try getting through both nodes to verify routing works
-	fmt.Println("\nTesting Get through node1:")
-	if value, err := node1.Get(testKey); err != nil {
-		fmt.Printf("Error getting through node1: %v\n", err)
-	} else {
-		fmt.Printf("Successfully retrieved value through node1: %s\n", string(value))
-	}
-	
-	fmt.Println("\nTesting Get through node2:")
-	if value, err := node2.Get(testKey); err != nil {
-		fmt.Printf("Error getting through node2: %v\n", err)
-	} else {
-		fmt.Printf("Successfully retrieved value through node2: %s\n", string(value))
-	}
-	
-	// Test getting a non-existent key
+	// Test non-existent key
 	fmt.Println("\nTesting Get with non-existent key:")
-	if _, err := node1.Get("non-existent-key"); err != nil {
+	_, err := nodes[0].node.Get("non-existent-key")
+	if err != nil {
 		fmt.Printf("Expected error getting non-existent key: %v\n", err)
 	}
 }

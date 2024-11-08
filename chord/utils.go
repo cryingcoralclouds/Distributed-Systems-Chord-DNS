@@ -2,7 +2,6 @@ package chord
 
 import (
 	"crypto/sha1"
-	"log"
 	"math/big"
 )
 
@@ -16,7 +15,7 @@ func HashKey(input string) *big.Int {
 // A utility function that checks if a given ID falls between two other IDs in a circular manner, accounting for the ring topology of Chord.
 func Between(id, start, end *big.Int, inclusive bool) bool {
     if id == nil || start == nil || end == nil {
-        log.Printf("[Between] Nil value detected in comparison")
+        // log.Printf("[Between] Nil value detected in comparison")
         return false
     }
 
@@ -25,13 +24,13 @@ func Between(id, start, end *big.Int, inclusive bool) bool {
     start = new(big.Int).Mod(start, RingSize)
     end = new(big.Int).Mod(end, RingSize)
 
-    log.Printf("[Between] Checking if %s is between %s and %s (inclusive: %v)", 
-        id.String(), start.String(), end.String(), inclusive)
+    // log.Printf("[Between] Checking if %s is between %s and %s (inclusive: %v)", 
+    //     id.String(), start.String(), end.String(), inclusive)
 
     // If start equals end
     if start.Cmp(end) == 0 {
         result := inclusive
-        log.Printf("[Between] Start equals end, returning %v", result)
+        // log.Printf("[Between] Start equals end, returning %v", result)
         return result
     }
 
@@ -39,18 +38,18 @@ func Between(id, start, end *big.Int, inclusive bool) bool {
     if start.Cmp(end) > 0 {
         // id should be greater than start OR less than end
         result := id.Cmp(start) > 0 || id.Cmp(end) < 0
-        log.Printf("[Between] Ring wrap case, returning %v", result)
+        // log.Printf("[Between] Ring wrap case, returning %v", result)
         return result
     }
 
     // Normal case
     if inclusive {
         result := id.Cmp(start) >= 0 && id.Cmp(end) <= 0
-        log.Printf("[Between] Normal case (inclusive), returning %v", result)
+        // log.Printf("[Between] Normal case (inclusive), returning %v", result)
         return result
     }
     result := id.Cmp(start) > 0 && id.Cmp(end) < 0
-    log.Printf("[Between] Normal case (exclusive), returning %v", result)
+    // log.Printf("[Between] Normal case (exclusive), returning %v", result)
     return result
 }
 
