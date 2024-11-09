@@ -109,7 +109,7 @@ func startServer(server *chord.HTTPNodeServer, addr string) {
 
 func testPing(nodes []*chord.Node) {
 	fmt.Println("Testing node connectivity...")
-	
+
 	for i, node := range nodes {
 		url := fmt.Sprintf("http://localhost%s/ping", node.Address)
 		resp, err := http.Get(url)
