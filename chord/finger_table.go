@@ -5,7 +5,7 @@ import (
     "fmt"
     "log"
     "math/big"
-    "math/rand"
+    // "math/rand"
     "time"
 )
 
@@ -110,24 +110,37 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
     return new(big.Int).Mod(sum, RingSize)
 }
 
-// fixFingers periodically refreshes finger table entries
-func (n *Node) fixFingers() {
-    if !n.IsAlive {
-        return
-    }
+// // fixFingers periodically refreshes finger table entries
+// func (n *Node) fixFingers() {
+//     if !n.IsAlive {
+//         return
+//     }
 
-    // Pick a random finger to fix
-    i := rand.Intn(M)
-    start := calculateFingerStart(n.ID, i)
+// 	// // Fix all fingers sequentially in one go
+// 	// for i := 0; i < M; i++ {
+//     //     start := calculateFingerStart(n.ID, i)
+//     //     successor := n.FindSuccessorInternal(start)
+        
+//     //     if successor != nil && (n.FingerTable[i] == nil || 
+//     //        successor.ID.Cmp(n.FingerTable[i].ID) != 0) {
+//     //         n.FingerTable[i] = successor
+//     //     }
+//     // }
+
+//     // Pick a random finger to fix
+//     i := rand.Intn(M)
+//     start := calculateFingerStart(n.ID, i)
     
-    successor := n.FindSuccessorInternal(start)
-    if successor != nil && successor.ID.Cmp(n.FingerTable[i].ID) != 0 {
-        n.FingerTable[i] = successor
-    }
-}
+//     successor := n.FindSuccessorInternal(start)
+//     if successor != nil && successor.ID.Cmp(n.FingerTable[i].ID) != 0 {
+//         n.FingerTable[i] = successor
+//     }
+// }
 
-// startFixFingers runs the finger table maintenance loop
 func (n *Node) startFixFingers() {
+    // Start with first finger
+    currentFinger := 0
+
     ticker := time.NewTicker(FixFingersInterval)
     defer ticker.Stop()
 
@@ -136,7 +149,25 @@ func (n *Node) startFixFingers() {
         case <-n.ctx.Done():
             return
         case <-ticker.C:
-            n.fixFingers()
+            if !n.IsAlive {
+                continue
+            }
+
+            // Fix current finger
+            start := calculateFingerStart(n.ID, currentFinger)
+            successor := n.FindSuccessorInternal(start)
+
+            if successor != nil {
+                if n.FingerTable[currentFinger] == nil || 
+                   successor.ID.Cmp(n.FingerTable[currentFinger].ID) != 0 {
+                    log.Printf("Node %s: Updating finger[%d] to %s", 
+                        n.ID.String(), currentFinger, successor.ID.String())
+                    n.FingerTable[currentFinger] = successor
+                }
+            }
+
+            // Move to next finger
+            currentFinger = (currentFinger + 1) % M
         }
     }
 }

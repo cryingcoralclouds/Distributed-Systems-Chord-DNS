@@ -13,7 +13,6 @@ func HashKey(input string) *big.Int {
 	// Create a new random source with the seed
 	r := rand.New(rand.NewSource(int64(seed[0]) | int64(seed[1])<<8 | int64(seed[2])<<16 | int64(seed[3])<<24))
 
-	// Define a smaller maxInt for 10 nodes
 	maxInt := big.NewInt(1024) // Key space of 2^12
 
 	// Generate a pseudo-random number in the reduced key space

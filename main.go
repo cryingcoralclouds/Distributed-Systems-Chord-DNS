@@ -118,7 +118,7 @@ func testStabilization(nodes []ChordNode) {
 	fmt.Println("Monitoring network stabilization...")
 	
 	for iteration := 0; iteration < 5; iteration++ {
-		time.Sleep(2 * time.Second)
+		time.Sleep(chord.StabilizeInterval)
 		fmt.Printf("\nIteration %d:\n", iteration+1)
 		
 		for i, node := range nodes {
@@ -197,7 +197,7 @@ func testPutAndGet(nodes []ChordNode) {
 func testFingerTables(nodes []ChordNode) {
     fmt.Println("Monitoring finger tables over multiple iterations...")
     
-    for iteration := 0; iteration < 40; iteration++ {
+    for iteration := 0; iteration < 3; iteration++ {	// changed from 40 to 3 because sequential finger table fix converges way faster 
         fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
         
         // Wait between iterations to allow for fixes

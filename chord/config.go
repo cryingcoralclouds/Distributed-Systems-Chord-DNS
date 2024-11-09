@@ -15,8 +15,8 @@ const (
 
 // Timing constants
 const (
-	StabilizeInterval  = 1 * time.Second
-	FixFingersInterval = 2 * time.Second
+	StabilizeInterval  = 500 * time.Millisecond
+	FixFingersInterval = 500 * time.Millisecond
 	CheckPredInterval  = 3 * time.Second
 	NetworkTimeout     = 2 * time.Second
 )
