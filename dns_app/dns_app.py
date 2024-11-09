@@ -9,6 +9,7 @@ from cachetools import TTLCache, LRUCache
 from typing import Dict, Optional, List
 from datetime import datetime
 from threading import Lock
+import random
 
 app = Flask(__name__)
 
@@ -78,7 +79,16 @@ class ChordDNSResolver:
         click.echo(json.dumps(self.cache.get_cache_stats(), indent=2))
         
     def hash_domain(self, domain: str) -> str: #REPLACE WITH OUR HASH
-        return hashlib.sha256(domain.encode()).hexdigest()
+        md5_hash = hashlib.md5(str.encode()).digest()
+        
+        seed = (md5_hash[0] | 
+            (md5_hash[1] << 8) | 
+            (md5_hash[2] << 16) | 
+            (md5_hash[3] << 24))
+        
+        rng = random.Random(seed)
+        result = rng.randrange(0, 1024)
+        return result
     
     def resolve_domain(self, domain: str) -> Dict:
         # Check cache first
@@ -101,8 +111,8 @@ class ChordDNSResolver:
             
             # Make API request to Chord network --> WHAT IS THE EXACT API REQUEST
             response = requests.get(
-                f"{chord_node}/lookup",
-                params={"key": domain_hash}
+                f"{chord_node}/key/{domain_hash}",
+                # params={"key": domain_hash}
             )
             
             if response.status_code == 200:
