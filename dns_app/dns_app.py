@@ -151,7 +151,7 @@ def load_seed_nodes(seed_file: str) -> Dict[str, str]:
 @click.command()
 @click.option('--chord-nodes', required=True, help='Comma-separated list of Chord node URLs') #CAN INIT WITH OUR SEED NODES
 @click.option('--seed-file', default='seed_nodes.json', help='JSON file containing seed DNS entries')
-# @click.option('--cache-ttl', default=300, help='Cache TTL in seconds')
+@click.option('--cache-ttl', default=300, help='Cache TTL in seconds')
 def main(chord_nodes: str, seed_file: str, cache_ttl: int):
     """DNS resolver CLI using Chord protocol."""
     # Load seed nodes

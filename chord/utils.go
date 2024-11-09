@@ -1,22 +1,24 @@
 package chord
 
 import (
-	"crypto/sha1"
+	"crypto/md5"
 	"math/big"
 	"math/rand"
-
-	"github.com/google/uuid"
 )
 
-// Takes a string input and returns its SHA-1 hash as a big integer. This is used for generating unique identifiers for keys and nodes.
 func HashKey(input string) *big.Int {
-	// Generate a UUID and append it to the input to ensure greater uniqueness in hash values
-	uniqueID := uuid.New().String()
-	uniqueInput := input + uniqueID
+	// Generate a seed using MD5 hash of the input string for deterministic random behaviour
+	seed := md5.Sum([]byte(input))
 
-	hash := sha1.New()
-	hash.Write([]byte(uniqueInput))
-	return new(big.Int).SetBytes(hash.Sum(nil))
+	// Create a new random source with the seed
+	r := rand.New(rand.NewSource(int64(seed[0]) | int64(seed[1])<<8 | int64(seed[2])<<16 | int64(seed[3])<<24))
+
+	maxInt := big.NewInt(1024) // Key space of 2^12
+
+	// Generate a pseudo-random number in the reduced key space
+	randomBigInt := new(big.Int).Rand(r, maxInt)
+
+	return randomBigInt
 }
 
 // A utility function that checks if a given ID falls between two other IDs in a circular manner, accounting for the ring topology of Chord.
@@ -32,7 +34,7 @@ func Between(id, start, end *big.Int, inclusive bool) bool {
 	end = new(big.Int).Mod(end, RingSize)
 
 	// log.Printf("[Between] Checking if %s is between %s and %s (inclusive: %v)",
-	// id.String(), start.String(), end.String(), inclusive)
+	//     id.String(), start.String(), end.String(), inclusive)
 
 	// If start equals end
 	if start.Cmp(end) == 0 {
