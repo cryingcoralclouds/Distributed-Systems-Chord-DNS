@@ -128,7 +128,7 @@ func (n *Node) FindSuccessor(ctx context.Context, id *big.Int) (*RemoteNode, err
 		return n.Successors[0], nil
 	}
 
-	closest := n.closestPrecedingNode(id)
+	closest := n.GetClosestPrecedingFinger(id)
 	if closest == nil || closest.Client == nil {
 		log.Printf("Fallback: closest preceding node or its client is nil")
 		return n.Successors[0], fmt.Errorf("closest preceding node is nil")

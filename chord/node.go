@@ -405,7 +405,7 @@ func (n *Node) fixFingers() {
 	for i := 1; i < len(n.FingerTable); i++ { // temporarily change from len(n.FingerTable) to 5
 		// Find the start of the ith finger
 		start := new(big.Int).Add(n.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i-1)), nil))
-		successor, err := n.FindSuccessor(n.ctx, start)
+		successor, err := n.Client.FindSuccessor(n.ctx, start)
 
 		log.Printf("n %d", n.ID)
 		log.Printf("start: %d", start)
