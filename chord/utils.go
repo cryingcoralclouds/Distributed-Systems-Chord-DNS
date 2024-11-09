@@ -7,7 +7,7 @@ import (
 )
 
 func HashKey(input string) *big.Int {
-	// Generate a seed using MD5 hash of the input string for deterministic random behavior
+	// Generate a seed using MD5 hash of the input string for deterministic random behaviour
 	seed := md5.Sum([]byte(input))
 
 	// Create a new random source with the seed

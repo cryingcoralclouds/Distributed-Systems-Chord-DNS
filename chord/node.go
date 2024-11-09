@@ -17,7 +17,7 @@ type Node struct {
 	Successors        []*RemoteNode
 	Predecessor       *RemoteNode
 	FingerTable       [M]*RemoteNode
-	Keys              map[string][]byte
+	DHT               map[string][]byte
 	Versions          map[string]int64
 	ReplicationStatus map[string][]*RemoteNode
 
@@ -30,50 +30,55 @@ type Node struct {
 }
 
 func NewNode(addr string, client NodeClient) (*Node, error) {
-    if addr == "" {
-        return nil, errors.New("network address cannot be empty")
-    }
+	if addr == "" {
+		return nil, errors.New("network address cannot be empty")
+	}
 
-    ctx, cancel := context.WithCancel(context.Background())
-    node := &Node{
-        ID:                HashKey(addr),
-        Address:           addr,
-        IsAlive:           true,
-        Successors:        make([]*RemoteNode, NumSuccessors),
-        Keys:              make(map[string][]byte),
-        Versions:          make(map[string]int64),
-        ReplicationStatus: make(map[string][]*RemoteNode),
-        ctx:               ctx,
-        cancel:            cancel,
-        msgChan:           make(chan NodeMsg, 10),
-        Client:            client,
-    }
+	ctx, cancel := context.WithCancel(context.Background())
+	node := &Node{
+		ID:                HashKey(addr),
+		Address:           addr,
+		IsAlive:           true,
+		Successors:        make([]*RemoteNode, NumSuccessors),
+		DHT:               make(map[string][]byte),
+		Versions:          make(map[string]int64),
+		ReplicationStatus: make(map[string][]*RemoteNode),
+		ctx:               ctx,
+		cancel:            cancel,
+		msgChan:           make(chan NodeMsg, 10),
+		Client:            client,
+	}
 
-    // Initialize first successor as self
-    node.Successors[0] = &RemoteNode{
-        ID:      node.ID,
-        Address: node.Address,
-        Client:  client,
-    }
+	// Initialize first successor as self
+	node.Successors[0] = &RemoteNode{
+		ID:      node.ID,
+		Address: node.Address,
+		Client:  client,
+	}
 
 	// Start stabilization
 	node.startStabilize()
 
-    return node, nil
+	return node, nil
 }
 
 /*
 Put:
-Hashes the key to determine where it should be stored.
 Finds the responsible node for the hashed key.
 If current node is responsible, store locally. Otherwise, forward req with key-value to the responsible node.
 */
-func (n *Node) Put(key string, value []byte) error {
+func (n *Node) Put(hashedKey string, value []byte) error {
 	if !n.IsAlive {
 		return ErrNodeDown
 	}
 
-	hash := HashKey(key)
+	// Convert hashedKey to *big.Int
+	hash := new(big.Int)
+	if _, ok := hash.SetString(hashedKey, 10); !ok {
+		return fmt.Errorf("invalid hashed key: %s", hashedKey)
+	}
+
+	// Find the responsible node for the hashed key
 	responsible := n.FindResponsibleNode(hash)
 
 	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
@@ -81,13 +86,20 @@ func (n *Node) Put(key string, value []byte) error {
 
 	// If we are the responsible node, store locally
 	if responsible.ID.Cmp(n.ID) == 0 {
-		n.Keys[key] = value
-		n.Versions[key] = time.Now().UnixNano()
+		n.DHT[hashedKey] = value
+		n.Versions[hashedKey] = time.Now().UnixNano()
+		log.Printf("Stored record locally: key=%s, value=%s", hashedKey, string(value))
 		return nil
 	}
 
-	// Otherwise, forward to responsible node
-	return responsible.Client.StoreKey(ctx, key, value)
+	// Otherwise, forward the request to the responsible node
+	err := responsible.Client.StoreKey(ctx, hashedKey, value)
+	if err != nil {
+		return fmt.Errorf("failed to forward record to responsible node: %w", err)
+	}
+
+	log.Printf("Forwarded record: key=%s, value=%s", hashedKey, string(value))
+	return nil
 }
 
 /*
@@ -125,38 +137,45 @@ func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error
 
 /*
 Get:
-Generate a hash for the key to identify its position on the ring.
 Use the Chord ring structure to find the successor node responsible for that key hash.
 Use "between" checks to confirm if the node is responsible for the key.
 Retrieve the value if the node holds it; otherwise, forward the request to the responsible node.
 Return value.
 */
-func (n *Node) Get(key string) ([]byte, error) {
+func (n *Node) Get(hashedKey string) ([]byte, error) {
 	if !n.IsAlive {
 		return nil, ErrNodeDown
 	}
 
-	hash := HashKey(key)
+	// Convert hashedKey to *big.Int
+	hash := new(big.Int)
+	if _, ok := hash.SetString(hashedKey, 10); !ok {
+		return nil, fmt.Errorf("invalid hashed key: %s", hashedKey)
+	}
+
+	// Find the responsible node for the hashed key
 	responsible := n.FindResponsibleNode(hash)
 
 	// If we are the responsible node, return locally stored value
 	if responsible.ID.Cmp(n.ID) == 0 {
-		value, exists := n.Keys[key]
+		value, exists := n.DHT[hashedKey]
 		if !exists {
 			return nil, ErrKeyNotFound
 		}
+		log.Printf("Retrieved record locally: key=%s, value=%s", hashedKey, string(value))
 		return value, nil
 	}
 
-	// Otherwise, forward to responsible node
+	// Otherwise, forward the request to the responsible node
 	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
 	defer cancel()
 
-	value, _, err := responsible.Client.GetKey(ctx, key)
+	value, _, err := responsible.Client.GetKey(ctx, hashedKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to retrieve record from responsible node: %w", err)
 	}
 
+	log.Printf("Retrieved record from responsible node: key=%s, value=%s", hashedKey, string(value))
 	return value, nil
 }
 
@@ -192,30 +211,30 @@ Allows a node to join the Chord ring.
 Communicates with an introducer node to find its successor and initializes its finger table.
 */
 func (n *Node) Join(introducer *RemoteNode) error {
-    if introducer == nil {
-        log.Printf("[Join] No introducer provided, starting new ring")
-        n.Predecessor = nil
-        n.Successors[0] = &RemoteNode{
-            ID:      n.ID,
-            Address: n.Address,
-            Client:  n.Client,
-        }
-        return n.InitFingerTable(nil)
-    }
-    
-    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-    defer cancel()
+	if introducer == nil {
+		log.Printf("[Join] No introducer provided, starting new ring")
+		n.Predecessor = nil
+		n.Successors[0] = &RemoteNode{
+			ID:      n.ID,
+			Address: n.Address,
+			Client:  n.Client,
+		}
+		return n.InitFingerTable(nil)
+	}
 
-    // Find our successor through the introducer
-    successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
-    if err != nil {
-        return fmt.Errorf("failed to find successor: %w", err)
-    }
-    
-    // Clear our predecessor - it will be set through stabilization
-    n.Predecessor = nil
-    
-    // If the successor is the introducer and we're smaller, we should be its predecessor
+	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+	defer cancel()
+
+	// Find our successor through the introducer
+	successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
+	if err != nil {
+		return fmt.Errorf("failed to find successor: %w", err)
+	}
+
+	// Clear our predecessor - it will be set through stabilization
+	n.Predecessor = nil
+
+	// If the successor is the introducer and we're smaller, we should be its predecessor
 	if successor.ID.Cmp(introducer.ID) == 0 && n.ID.Cmp(introducer.ID) < 0 {
 		log.Printf("[Join] We should be the predecessor of the introducer")
 	}
@@ -223,18 +242,18 @@ func (n *Node) Join(introducer *RemoteNode) error {
 	// Set the successor
 	n.Successors[0] = successor
 
-    // Immediately notify our successor
-    self := &RemoteNode{
-        ID:      n.ID,
-        Address: n.Address,
-        Client:  n.Client,
-    }
-    
-    if err := n.Successors[0].Client.Notify(ctx, self); err != nil {
-        log.Printf("[Join] Failed to notify successor during join: %v", err)
-    }
-    
-    return n.InitFingerTable(introducer)
+	// Immediately notify our successor
+	self := &RemoteNode{
+		ID:      n.ID,
+		Address: n.Address,
+		Client:  n.Client,
+	}
+
+	if err := n.Successors[0].Client.Notify(ctx, self); err != nil {
+		log.Printf("[Join] Failed to notify successor during join: %v", err)
+	}
+
+	return n.InitFingerTable(introducer)
 }
 
 /*
@@ -271,7 +290,7 @@ func (n *Node) Leave() error {
 // Collects keys that belong to the node and prepares them for transfer to another node.
 func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	keys := make(map[string][]byte)
-	for key, value := range n.Keys {
+	for key, value := range n.DHT {
 		hash := HashKey(key)
 		if Between(hash, start, end, true) {
 			keys[key] = value
@@ -287,57 +306,57 @@ updates successor if needed,
 notifies the successor about this node's presence
 */
 func (n *Node) stabilize() {
-    if !n.IsAlive || n.Successors[0] == nil {
-        return
-    }
+	if !n.IsAlive || n.Successors[0] == nil {
+		return
+	}
 
-    // If we're our own successor and there's a predecessor, make it our successor
-    if n.Successors[0].ID.Cmp(n.ID) == 0 && n.Predecessor != nil && 
-       n.Predecessor.ID.Cmp(n.ID) != 0 {
-        n.Successors[0] = n.Predecessor
-        return
-    }
+	// If we're our own successor and there's a predecessor, make it our successor
+	if n.Successors[0].ID.Cmp(n.ID) == 0 && n.Predecessor != nil &&
+		n.Predecessor.ID.Cmp(n.ID) != 0 {
+		n.Successors[0] = n.Predecessor
+		return
+	}
 
-    // Get successor's predecessor
-    pred, err := n.Successors[0].Client.GetPredecessor(n.ctx)
-    if err != nil {
-        log.Printf("[Stabilize] Error getting successor's predecessor: %v", err)
-        return
-    }
+	// Get successor's predecessor
+	pred, err := n.Successors[0].Client.GetPredecessor(n.ctx)
+	if err != nil {
+		log.Printf("[Stabilize] Error getting successor's predecessor: %v", err)
+		return
+	}
 
-    if pred != nil {
-        
-        // Update our successor if needed
-        if pred.ID.Cmp(n.ID) != 0 && pred.ID.Cmp(n.Successors[0].ID) != 0 {
-            n.Successors[0] = pred
-        }
-    }
+	if pred != nil {
 
-    // Create RemoteNode for self
-    self := &RemoteNode{
-        ID:      n.ID,
-        Address: n.Address,
-        Client:  n.Client,
-    }
+		// Update our successor if needed
+		if pred.ID.Cmp(n.ID) != 0 && pred.ID.Cmp(n.Successors[0].ID) != 0 {
+			n.Successors[0] = pred
+		}
+	}
 
-    // Notify our successor
-    if err := n.Successors[0].Client.Notify(n.ctx, self); err != nil {
-        log.Printf("[Stabilize] Error notifying successor: %v", err)
-    }
+	// Create RemoteNode for self
+	self := &RemoteNode{
+		ID:      n.ID,
+		Address: n.Address,
+		Client:  n.Client,
+	}
+
+	// Notify our successor
+	if err := n.Successors[0].Client.Notify(n.ctx, self); err != nil {
+		log.Printf("[Stabilize] Error notifying successor: %v", err)
+	}
 }
 
 // To loop stabilization
 func (n *Node) startStabilize() {
-    ticker := time.NewTicker(StabilizeInterval)
-    go func() {
-        for {
-            select {
-            case <-ticker.C:
-                n.stabilize()
-            case <-n.ctx.Done():
-                ticker.Stop()
-                return
-            }
-        }
-    }()
+	ticker := time.NewTicker(StabilizeInterval)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				n.stabilize()
+			case <-n.ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 }
