@@ -26,6 +26,9 @@ func runTestSuite(nodes []ChordNode) {
 
 	printSeparator("Testing Put and Get Operations")
 	testPutAndGet(nodes)
+
+	printSeparator("Printing DHTs for Each Node")
+	testPrintDHTs(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -144,6 +147,20 @@ func testPutAndGet(nodes []ChordNode) {
 			fmt.Printf("Successfully retrieved hashed key '%s' = '%s' through node %d\n",
 				hashedKey, string(value), nodeIndex+1)
 			break
+		}
+	}
+}
+
+func testPrintDHTs(nodes []ChordNode) {
+	fmt.Println("Distributed Hash Tables (DHTs) for each node:")
+	for i, node := range nodes {
+		fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID.String())
+		if len(node.node.DHT) == 0 {
+			fmt.Println("  DHT is empty.")
+			continue
+		}
+		for key, value := range node.node.DHT {
+			fmt.Printf("  Key: %s, Value: %s\n", key, string(value))
 		}
 	}
 }
