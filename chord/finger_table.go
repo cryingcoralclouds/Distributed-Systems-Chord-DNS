@@ -183,8 +183,6 @@ func (n *Node) startFixFingers() {
             if successor != nil {
                 if n.FingerTable[currentFinger] == nil || 
                    successor.ID.Cmp(n.FingerTable[currentFinger].ID) != 0 {
-                    log.Printf("Node %s: Updating finger[%d] to %s", 
-                        n.ID.String(), currentFinger, successor.ID.String())
                     n.FingerTable[currentFinger] = successor
                 }
             }
