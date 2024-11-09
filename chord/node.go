@@ -200,7 +200,7 @@ func (n *Node) Join(introducer *RemoteNode) error {
             Address: n.Address,
             Client:  n.Client,
         }
-        return nil
+        return n.InitFingerTable(nil)
     }
     
     ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)

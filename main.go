@@ -96,22 +96,30 @@ func testPing() {
 }
 
 func testNodeJoining(nodes []ChordNode) {
-	// First node is the introducer
-	introducer := &chord.RemoteNode{
-		ID:      nodes[0].node.ID,
-		Address: nodes[0].node.Address,
-		Client:  chord.NewHTTPNodeClient(nodes[0].node.Address),
-	}
+    // First node creates a new ring (no introducer)
+    log.Printf("Node 1 creating new ring")
+    if err := nodes[0].node.Join(nil); err != nil {
+        log.Fatalf("Node 1 failed to create ring: %v", err)
+    }
+    log.Printf("Node 1 successfully created new ring")
+    time.Sleep(500 * time.Millisecond)
 
-	// Join other nodes through the introducer
-	for i := 1; i < numNodes; i++ {
-		log.Printf("Node %d trying to join through introducer\n", i+1)
-		if err := nodes[i].node.Join(introducer); err != nil {
-			log.Fatalf("Node %d failed to join: %v", i+1, err)
-		}
-		log.Printf("Node %d successfully joined the network\n", i+1)
-		time.Sleep(500 * time.Millisecond) // Brief pause between joins
-	}
+    // Create introducer reference for other nodes
+    introducer := &chord.RemoteNode{
+        ID:      nodes[0].node.ID,
+        Address: nodes[0].node.Address,
+        Client:  chord.NewHTTPNodeClient(nodes[0].node.Address),
+    }
+
+    // Other nodes join through the introducer
+    for i := 1; i < numNodes; i++ {
+        log.Printf("Node %d trying to join through introducer\n", i+1)
+        if err := nodes[i].node.Join(introducer); err != nil {
+            log.Fatalf("Node %d failed to join: %v", i+1, err)
+        }
+        log.Printf("Node %d successfully joined the network\n", i+1)
+        time.Sleep(500 * time.Millisecond) // Brief pause between joins
+    }
 }
 
 func testStabilization(nodes []ChordNode) {

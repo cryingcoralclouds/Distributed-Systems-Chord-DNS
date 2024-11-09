@@ -17,19 +17,42 @@ type FingerEntry struct {
 
 // InitFingerTable initializes all finger table entries when a node starts
 func (n *Node) InitFingerTable(introducer *RemoteNode) error {
-    if introducer == nil {
-        // If no introducer, we're the only node - point all fingers to self
+    if introducer == nil {        
+        // Create self reference
         self := &RemoteNode{
             ID:      n.ID,
             Address: n.Address,
             Client:  n.Client,
         }
-        for i := 0; i < M; i++ {
-            n.FingerTable[i] = self
+
+        // Initialize first finger (immediate successor is self)
+        n.FingerTable[0] = self
+        n.Successors[0] = self
+
+        // Initialize remaining fingers following the same logic as other nodes
+        for i := 1; i < M; i++ {
+            start := calculateFingerStart(n.ID, i)
+            
+            // In a single-node ring, all queries for successors will lead back to self
+            // But we still calculate and check the intervals to maintain consistency
+            // with the protocol's finger table structure
+            if Between(start, n.ID, n.ID, true) {
+                n.FingerTable[i] = self
+            } else {
+                // In a single-node ring, this case technically won't occur
+                // but we include it for protocol consistency
+                n.FingerTable[i] = self
+            }
         }
+
+        // Start finger table maintenance
+        go n.startFixFingers()
+        
         return nil
     }
 
+    // Rest of the implementation for nodes joining through introducer
+    
     // Initialize first finger (successor)
     start := calculateFingerStart(n.ID, 0)
     successor, err := introducer.Client.FindSuccessor(n.ctx, start)
@@ -37,7 +60,7 @@ func (n *Node) InitFingerTable(introducer *RemoteNode) error {
         return fmt.Errorf("failed to find first successor: %w", err)
     }
     n.FingerTable[0] = successor
-    n.Successors[0] = successor // Update successor list too
+    n.Successors[0] = successor
 
     // Initialize remaining fingers
     for i := 1; i < M; i++ {
@@ -48,18 +71,15 @@ func (n *Node) InitFingerTable(introducer *RemoteNode) error {
         if Between(start, n.ID, n.FingerTable[i-1].ID, true) {
             n.FingerTable[i] = n.FingerTable[i-1]
         } else {
-            // Otherwise ask the network for the proper successor
             successor, err := introducer.Client.FindSuccessor(n.ctx, start)
             if err != nil {
-                log.Printf("Error initializing finger %d: %v", i, err)
-                n.FingerTable[i] = n.FingerTable[i-1] // Fall back to previous entry
                 continue
             }
             n.FingerTable[i] = successor
         }
     }
 
-    // Start periodic finger table maintenance
+    // Start finger table maintenance
     go n.startFixFingers()
     
     return nil
@@ -110,31 +130,34 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
     return new(big.Int).Mod(sum, RingSize)
 }
 
+// Keeping this just in case. Currently we are fixing finger table sequentially, but 
+// the real Chord chooses random finger table entry to update, 
+// which takes 40 iterations to achieve the perfect finger table for us.
 // // fixFingers periodically refreshes finger table entries
 // func (n *Node) fixFingers() {
 //     if !n.IsAlive {
 //         return
 //     }
 
-// 	// // Fix all fingers sequentially in one go
-// 	// for i := 0; i < M; i++ {
-//     //     start := calculateFingerStart(n.ID, i)
-//     //     successor := n.FindResponsibleNode(start)
+	// // Fix all fingers sequentially in one go
+	// for i := 0; i < M; i++ {
+    //     start := calculateFingerStart(n.ID, i)
+    //     successor := n.FindResponsibleNode(start)
         
-//     //     if successor != nil && (n.FingerTable[i] == nil || 
-//     //        successor.ID.Cmp(n.FingerTable[i].ID) != 0) {
-//     //         n.FingerTable[i] = successor
-//     //     }
-//     // }
+    //     if successor != nil && (n.FingerTable[i] == nil || 
+    //        successor.ID.Cmp(n.FingerTable[i].ID) != 0) {
+    //         n.FingerTable[i] = successor
+    //     }
+    // }
 
-//     // Pick a random finger to fix
-//     i := rand.Intn(M)
-//     start := calculateFingerStart(n.ID, i)
-    
-//     successor := n.FindResponsibleNode(start)
-//     if successor != nil && successor.ID.Cmp(n.FingerTable[i].ID) != 0 {
-//         n.FingerTable[i] = successor
-//     }
+	//     // Pick a random finger to fix
+	//     i := rand.Intn(M)
+	//     start := calculateFingerStart(n.ID, i)
+		
+	//     successor := n.FindResponsibleNode(start)
+	//     if successor != nil && successor.ID.Cmp(n.FingerTable[i].ID) != 0 {
+	//         n.FingerTable[i] = successor
+	//     }
 // }
 
 func (n *Node) startFixFingers() {
