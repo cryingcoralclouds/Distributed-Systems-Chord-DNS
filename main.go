@@ -4,6 +4,7 @@ import (
 	"chord_dns/chord"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"time"
 )
@@ -19,33 +20,38 @@ type ChordNode struct {
 }
 
 func main() {
-	// Create nodes
-	nodes := make([]ChordNode, numNodes)
-	for i := 0; i < numNodes; i++ {
-		addr := fmt.Sprintf(":%d", basePort+i)
-		node, server := createNode(addr)
-		nodes[i] = ChordNode{node: node, server: server}
-		startServer(server, addr)
-	}
+    // Create nodes
+    nodes := make([]ChordNode, numNodes)
+    for i := 0; i < numNodes; i++ {
+        addr := fmt.Sprintf(":%d", basePort+i)
+        node, server := createNode(addr)
+        nodes[i] = ChordNode{node: node, server: server}
+        startServer(server, addr)
+    }
 
-	// Wait for servers to start
-	time.Sleep(2 * time.Second)
+    // Wait for servers to start
+    time.Sleep(2 * time.Second)
 
-	// Run tests
-	printSeparator("Testing Node Connectivity")
-	testPing()
+    printSeparator("Testing Node Connectivity")
+    testPing()
 
-	printSeparator("Testing Node Joining")
-	testNodeJoining(nodes)
+    printSeparator("Testing Node Joining")
+    testNodeJoining(nodes)
 
-	printSeparator("Testing Stabilization")
-	testStabilization(nodes)
+    // Give more time for initial stabilization and finger table setup
+    time.Sleep(5 * time.Second)
 
-	printSeparator("Testing Put and Get Operations")
-	testPutAndGet(nodes)
+    printSeparator("Testing Stabilization")
+    testStabilization(nodes)
 
-	fmt.Println("\nServers running. Press Ctrl+C to exit.")
-	select {}
+    printSeparator("Testing Finger Tables")
+    testFingerTables(nodes)
+
+    printSeparator("Testing Put and Get Operations")
+    testPutAndGet(nodes)
+
+    fmt.Println("\nServers running. Press Ctrl+C to exit.")
+    select {}
 }
 
 func printSeparator(title string) {
@@ -186,4 +192,104 @@ func testPutAndGet(nodes []ChordNode) {
 	if err != nil {
 		fmt.Printf("Expected error getting non-existent key: %v\n", err)
 	}
+}
+
+func testFingerTables(nodes []ChordNode) {
+    fmt.Println("Monitoring finger tables over multiple iterations...")
+    
+    for iteration := 0; iteration < 40; iteration++ {
+        fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
+        
+        // Wait between iterations to allow for fixes
+        time.Sleep(2 * time.Second)
+        
+        incorrectEntries := 0
+        totalEntries := 0
+        
+        for i, node := range nodes {
+            fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID)
+            nodeErrors := verifyFingerTable(node.node, nodes)
+            incorrectEntries += nodeErrors
+            totalEntries += chord.M
+        }
+        
+        // Print summary for this iteration
+        fmt.Printf("\nIteration %d Summary:\n", iteration+1)
+        fmt.Printf("Total Entries: %d\n", totalEntries)
+        fmt.Printf("Incorrect Entries: %d\n", incorrectEntries)
+        fmt.Printf("Accuracy: %.2f%%\n", 
+            100.0 * float64(totalEntries-incorrectEntries) / float64(totalEntries))
+        
+        if incorrectEntries == 0 {
+            fmt.Println("\nAll finger tables are correct! Stopping monitoring.")
+            return
+        }
+    }
+}
+
+func verifyFingerTable(node *chord.Node, allNodes []ChordNode) int {
+    incorrectEntries := 0
+    
+    for i := 0; i < chord.M; i++ {
+        start := calculateFingerStart(node.ID, i)
+        actual := node.FingerTable[i]
+        
+        if actual == nil {
+            fmt.Printf("  Finger[%d]: ERROR - Nil entry\n", i)
+            incorrectEntries++
+            continue
+        }
+
+        expected := findExpectedSuccessor(start, allNodes)
+        
+        if expected.ID.Cmp(actual.ID) == 0 {
+            fmt.Printf("  Finger[%d]: ✓ Correct (start=%s, successor=%s)\n", 
+                i, start.String(), actual.ID.String())
+        } else {
+            fmt.Printf("  Finger[%d]: ✗ Incorrect\n", i)
+            fmt.Printf("    - Start: %s\n", start.String())
+            fmt.Printf("    - Expected successor: %s\n", expected.ID.String())
+            fmt.Printf("    - Actual successor: %s\n", actual.ID.String())
+            incorrectEntries++
+        }
+    }
+    
+    return incorrectEntries
+}
+
+func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
+    // start = (n + 2^i) mod 2^m
+    exp := new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i)), nil)
+    sum := new(big.Int).Add(nodeID, exp)
+    return new(big.Int).Mod(sum, chord.RingSize)
+}
+
+func findExpectedSuccessor(id *big.Int, nodes []ChordNode) *chord.RemoteNode {
+    var successor *chord.RemoteNode
+    
+    // Initialize successor as the node with the smallest ID
+    minNode := &nodes[0]
+    for _, node := range nodes {
+        if node.node.ID.Cmp(minNode.node.ID) < 0 {
+            minNode = &node
+        }
+    }
+    successor = &chord.RemoteNode{
+        ID:      minNode.node.ID,
+        Address: minNode.node.Address,
+        Client:  minNode.node.Client,
+    }
+
+    // Find the actual successor
+    for _, node := range nodes {
+        if chord.Between(node.node.ID, id, successor.ID, false) {
+            successor = &chord.RemoteNode{
+                ID:      node.node.ID,
+                Address: node.node.Address,
+                Client:  node.node.Client,
+            }
+        }
+    }
+
+    return successor
 }
