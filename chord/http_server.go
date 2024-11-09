@@ -83,7 +83,7 @@ func (s *HTTPNodeServer) handleFindSuccessor(w http.ResponseWriter, r *http.Requ
         return
     }
 
-    successor := s.node.FindSuccessorInternal(id)
+    successor := s.node.FindResponsibleNode(id)
     if successor == nil {
         http.Error(w, "No successor found", http.StatusNotFound)
         return

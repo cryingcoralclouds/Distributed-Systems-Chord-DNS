@@ -74,7 +74,7 @@ func (n *Node) Put(key string, value []byte) error {
 	}
 
 	hash := HashKey(key)
-	responsible := n.FindSuccessorInternal(hash)
+	responsible := n.FindResponsibleNode(hash)
 
 	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
 	defer cancel()
@@ -137,7 +137,7 @@ func (n *Node) Get(key string) ([]byte, error) {
 	}
 
 	hash := HashKey(key)
-	responsible := n.FindSuccessorInternal(hash)
+	responsible := n.FindResponsibleNode(hash)
 
 	// If we are the responsible node, return locally stored value
 	if responsible.ID.Cmp(n.ID) == 0 {

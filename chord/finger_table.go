@@ -9,43 +9,6 @@ import (
     "time"
 )
 
-// FindSuccessorInternal finds the successor node for a given ID using the finger table
-func (n *Node) FindSuccessorInternal(id *big.Int) *RemoteNode {
-    // Case 1: If we're the only node in the ring
-    if n.Successors[0] == nil || n.Successors[0].ID.Cmp(n.ID) == 0 {
-        return &RemoteNode{
-            ID:      n.ID,
-            Address: n.Address,
-            Client:  n.Client,
-        }
-    }
-
-    // Case 2: Check if ID is between us and our immediate successor
-    if Between(id, n.ID, n.Successors[0].ID, false) {
-        return n.Successors[0]
-    }
-
-    // Case 3: Use finger table to find closest preceding node
-    closestPred := n.GetClosestPrecedingFinger(id)
-    if closestPred == nil || closestPred.ID.Cmp(n.ID) == 0 {
-        // If no closer node found, return our successor
-        return n.Successors[0]
-    }
-
-    // Forward the query to the closest preceding node
-    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-    defer cancel()
-
-    successor, err := closestPred.Client.FindSuccessor(ctx, id)
-    if err != nil {
-        log.Printf("Error finding successor through closest preceding node: %v", err)
-        // Fallback to our successor if lookup fails
-        return n.Successors[0]
-    }
-
-    return successor
-}
-
 // FingerEntry represents an entry in the finger table
 type FingerEntry struct {
     Start  *big.Int    // Start of the finger interval
@@ -102,6 +65,43 @@ func (n *Node) InitFingerTable(introducer *RemoteNode) error {
     return nil
 }
 
+// Finds the successor node for a given ID using the finger table
+func (n *Node) FindResponsibleNode(id *big.Int) *RemoteNode {
+    // Case 1: If we're the only node in the ring
+    if n.Successors[0] == nil || n.Successors[0].ID.Cmp(n.ID) == 0 {
+        return &RemoteNode{
+            ID:      n.ID,
+            Address: n.Address,
+            Client:  n.Client,
+        }
+    }
+
+    // Case 2: Check if ID is between us and our immediate successor
+    if Between(id, n.ID, n.Successors[0].ID, false) {
+        return n.Successors[0]
+    }
+
+    // Case 3: Use finger table to find closest preceding node
+    closestPred := n.GetClosestPrecedingFinger(id)
+    if closestPred == nil || closestPred.ID.Cmp(n.ID) == 0 {
+        // If no closer node found, return our successor
+        return n.Successors[0]
+    }
+
+    // Forward the query to the closest preceding node
+    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+    defer cancel()
+
+    successor, err := closestPred.Client.FindSuccessor(ctx, id)
+    if err != nil {
+        log.Printf("Error finding successor through closest preceding node: %v", err)
+        // Fallback to our successor if lookup fails
+        return n.Successors[0]
+    }
+
+    return successor
+}
+
 // calculateFingerStart calculates the start of the ith finger interval
 func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
     // start = (n + 2^i) mod 2^m
@@ -119,7 +119,7 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
 // 	// // Fix all fingers sequentially in one go
 // 	// for i := 0; i < M; i++ {
 //     //     start := calculateFingerStart(n.ID, i)
-//     //     successor := n.FindSuccessorInternal(start)
+//     //     successor := n.FindResponsibleNode(start)
         
 //     //     if successor != nil && (n.FingerTable[i] == nil || 
 //     //        successor.ID.Cmp(n.FingerTable[i].ID) != 0) {
@@ -131,7 +131,7 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
 //     i := rand.Intn(M)
 //     start := calculateFingerStart(n.ID, i)
     
-//     successor := n.FindSuccessorInternal(start)
+//     successor := n.FindResponsibleNode(start)
 //     if successor != nil && successor.ID.Cmp(n.FingerTable[i].ID) != 0 {
 //         n.FingerTable[i] = successor
 //     }
@@ -155,7 +155,7 @@ func (n *Node) startFixFingers() {
 
             // Fix current finger
             start := calculateFingerStart(n.ID, currentFinger)
-            successor := n.FindSuccessorInternal(start)
+            successor := n.FindResponsibleNode(start)
 
             if successor != nil {
                 if n.FingerTable[currentFinger] == nil || 
