@@ -74,7 +74,7 @@ func (n *Node) Put(key string, value []byte) error {
 	}
 
 	hash := HashKey(key)
-	responsible := n.findSuccessorInternal(hash)
+	responsible := n.FindSuccessorInternal(hash)
 
 	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
 	defer cancel()
@@ -137,7 +137,7 @@ func (n *Node) Get(key string) ([]byte, error) {
 	}
 
 	hash := HashKey(key)
-	responsible := n.findSuccessorInternal(hash)
+	responsible := n.FindSuccessorInternal(hash)
 
 	// If we are the responsible node, return locally stored value
 	if responsible.ID.Cmp(n.ID) == 0 {
@@ -234,7 +234,7 @@ func (n *Node) Join(introducer *RemoteNode) error {
         log.Printf("[Join] Failed to notify successor during join: %v", err)
     }
     
-    return n.initFingerTable(introducer)
+    return n.InitFingerTable(introducer)
 }
 
 /*
