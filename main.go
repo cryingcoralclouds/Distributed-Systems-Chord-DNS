@@ -28,6 +28,7 @@ type TestConfig struct {
 	TestFingers    bool
 	TestOperations bool
 	TestDHT        bool
+	TestInteractive bool
 }
 
 func main() {
@@ -64,6 +65,7 @@ func defineFlags() *TestConfig {
 	flag.BoolVar(&config.TestFingers, "fingers", false, "Test finger tables")
 	flag.BoolVar(&config.TestOperations, "ops", false, "Test Put and Get operations")
 	flag.BoolVar(&config.TestDHT, "dht", false, "Print DHTs for each node")
+	flag.BoolVar(&config.TestInteractive, "interactive", false, "Run interactive DNS resolution test")
 	
 	return config
 }

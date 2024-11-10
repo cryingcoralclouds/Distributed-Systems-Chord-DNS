@@ -111,24 +111,6 @@ class ChordDNSResolver:
                 "load_balancer_status": self.load_balancer.get_node_status()
             }
         
-<<<<<<< Updated upstream
-        try:
-            # Hash the domain
-            # domain_hash = self.hash_domain(domain)
-            
-            # Get next node using modulo load balancer
-            chord_node = self.load_balancer.get_next_node()
-            
-            # Make API request to Chord network --> WHAT IS THE EXACT API REQUEST
-            response = requests.get(
-                f"{chord_node}/key/{domain}",
-                # params={"key": domain_hash}
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                ip_address = result.get("value")
-=======
         # Hash the domain
         domain_hash = self.hash_domain(domain)
         nodes_tried = []
@@ -142,7 +124,6 @@ class ChordDNSResolver:
                     f"{chord_node}/key/{domain_hash}",
                     # params={"key": domain_hash}
                 )
->>>>>>> Stashed changes
                 
                 if response.status_code == 200:
                     result = response.json()

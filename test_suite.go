@@ -8,72 +8,84 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+	"bufio"
+    "os"
+    "strings"
 )
 
 
 func runTestSuite(nodes []ChordNode, config *TestConfig) {
-	// If no flags are set or -all is used, run all tests
-	if config.RunAll || (!config.TestPing && !config.TestJoin && !config.TestStabilize && 
-		!config.TestFingers && !config.TestOperations && !config.TestDHT) {
-		runAllTests(nodes)
-		return
-	}
+    // Check if only interactive test is requested
+    if config.TestInteractive && !config.RunAll && !config.TestPing && !config.TestJoin && 
+        !config.TestStabilize && !config.TestFingers && !config.TestOperations && !config.TestDHT {
+        printSeparator("Interactive DNS Resolution Test")
+        interactiveDNSTest(nodes)
+        return
+    }
 
-	// Run individual tests based on flags
-	if config.TestPing {
-		printSeparator("Testing Node Connectivity")
-		testPing(nodes)
-	}
+    // If no flags are set (excluding interactive) or -all is used, run all tests
+    if config.RunAll || (!config.TestPing && !config.TestJoin && !config.TestStabilize && 
+        !config.TestFingers && !config.TestOperations && !config.TestDHT && !config.TestInteractive) {
+        runAllTests(nodes)
+        return
+    }
 
-	if config.TestJoin {
-		printSeparator("Testing Node Joining")
-		testNodeJoining(nodes)
-		// Allow time for initial setup
-		time.Sleep(2 * time.Second)
-	}
+    // Run individual tests based on flags
+    if config.TestPing {
+        printSeparator("Testing Node Connectivity")
+        testPing(nodes)
+    }
 
-	if config.TestStabilize {
-		printSeparator("Testing Stabilization")
-		testStabilization(nodes)
-	}
+    if config.TestJoin {
+        printSeparator("Testing Node Joining")
+        testNodeJoining(nodes)
+        // Allow time for initial setup
+        time.Sleep(2 * time.Second)
+    }
 
-	if config.TestFingers {
-		printSeparator("Testing Finger Tables")
-		testFingerTables(nodes)
-	}
+    if config.TestStabilize {
+        printSeparator("Testing Stabilization")
+        testStabilization(nodes)
+    }
 
-	if config.TestOperations {
-		printSeparator("Testing Put and Get Operations")
-		testPutAndGet(nodes)
-	}
+    if config.TestFingers {
+        printSeparator("Testing Finger Tables")
+        testFingerTables(nodes)
+    }
 
-	if config.TestDHT {
-		printSeparator("Printing DHTs for Each Node")
-		testPrintDHTs(nodes)
-	}
+    if config.TestOperations {
+        printSeparator("Testing Put and Get Operations")
+        testPutAndGet(nodes)
+    }
+
+    if config.TestDHT {
+        printSeparator("Printing DHTs for Each Node")
+        testPrintDHTs(nodes)
+    }
 }
 
+// Update runAllTests to optionally include interactive test
 func runAllTests(nodes []ChordNode) {
-	printSeparator("Testing Node Connectivity")
-	testPing(nodes)
+    printSeparator("Testing Node Connectivity")
+    testPing(nodes)
 
-	printSeparator("Testing Node Joining")
-	testNodeJoining(nodes)
+    printSeparator("Testing Node Joining")
+    testNodeJoining(nodes)
 
-	// Allow time for stabilization and finger table setup
-	time.Sleep(5 * time.Second)
+    // Allow time for stabilization and finger table setup
+    time.Sleep(5 * time.Second)
 
-	printSeparator("Testing Stabilization")
-	testStabilization(nodes)
+    printSeparator("Testing Stabilization")
+    testStabilization(nodes)
 
-	printSeparator("Testing Finger Tables")
-	testFingerTables(nodes)
+    printSeparator("Testing Finger Tables")
+    testFingerTables(nodes)
 
-	printSeparator("Testing Put and Get Operations")
-	testPutAndGet(nodes)
+    printSeparator("Testing Put and Get Operations")
+    testPutAndGet(nodes)
 
-	printSeparator("Printing DHTs for Each Node")
-	testPrintDHTs(nodes)
+    printSeparator("Printing DHTs for Each Node")
+    testPrintDHTs(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -140,7 +152,7 @@ func testStabilization(nodes []ChordNode) {
 
 func testFingerTables(nodes []ChordNode) {
 	fmt.Println("Monitoring finger tables...")
-	for iteration := 0; iteration < 3; iteration++ {
+	for iteration := 0; iteration < 5; iteration++ {
 		fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
 		time.Sleep(2 * time.Second)
 
@@ -255,4 +267,105 @@ func testPrintDHTs(nodes []ChordNode) {
 			fmt.Printf("  Key: %s, Value: %s\n", key, string(value))
 		}
 	}
+}
+
+func interactiveDNSTest(nodes []ChordNode) {
+    fmt.Println("\n=== Interactive DNS Resolution Test ===")
+    fmt.Println("Commands:")
+    fmt.Println("1. put <domain> <ip>  - Store a new DNS record")
+    fmt.Println("2. get <domain>       - Lookup a domain's IP")
+    fmt.Println("3. exit              - Exit the interactive test")
+
+    reader := bufio.NewReader(os.Stdin)
+
+    for {
+        fmt.Print("\nEnter command > ")
+        input, err := reader.ReadString('\n')
+        if err != nil {
+            fmt.Printf("Error reading input: %v\n", err)
+            continue
+        }
+
+        // Trim whitespace and split the input
+        parts := strings.Fields(strings.TrimSpace(input))
+        if len(parts) == 0 {
+            continue
+        }
+
+        command := strings.ToLower(parts[0])
+
+        switch command {
+        case "put":
+            if len(parts) != 3 {
+                fmt.Println("Usage: put <domain> <ip>")
+                continue
+            }
+            domain := parts[1]
+            ip := parts[2]
+
+            // Hash the domain name
+            hashedKey := chord.HashKey(domain).String()
+            
+            // Pick a random node to initiate the put operation
+            randomNode := nodes[rand.Intn(len(nodes))]
+            
+            // Store the DNS record
+            err := randomNode.node.Put(hashedKey, []byte(ip))
+            if err != nil {
+                fmt.Printf("Failed to store DNS record for '%s': %v\n", domain, err)
+                continue
+            }
+
+            // Find which node is responsible for this key
+            keyBigInt := new(big.Int)
+            keyBigInt.SetString(hashedKey, 10)
+            responsibleNode := randomNode.node.FindResponsibleNode(keyBigInt)
+            
+            fmt.Printf("Successfully stored DNS record:\n")
+            fmt.Printf("Domain: %s\n", domain)
+            fmt.Printf("IP: %s\n", ip)
+            fmt.Printf("Hash: %s\n", hashedKey)
+            fmt.Printf("Stored on Node: %s\n", responsibleNode.ID)
+
+        case "get":
+            if len(parts) != 2 {
+                fmt.Println("Usage: get <domain>")
+                continue
+            }
+            domain := parts[1]
+
+            // Hash the domain name
+            hashedKey := chord.HashKey(domain).String()
+            
+            // Try retrieving from a random node
+            var retrieved bool
+            for _, node := range nodes {
+                value, err := node.node.Get(hashedKey)
+                if err != nil {
+                    continue // Try next node if error occurs
+                }
+                
+                if string(value) != "" {
+                    fmt.Printf("DNS Resolution Result:\n")
+                    fmt.Printf("Domain: %s\n", domain)
+                    fmt.Printf("IP: %s\n", string(value))
+                    fmt.Printf("Hash: %s\n", hashedKey)
+                    fmt.Printf("Retrieved through Node: %s\n", node.node.ID)
+                    retrieved = true
+                    break
+                }
+            }
+
+            if !retrieved {
+                fmt.Printf("Failed to resolve domain '%s'. It might not exist in the DHT.\n", domain)
+            }
+
+        case "exit":
+            fmt.Println("Exiting interactive DNS test...")
+            return
+
+        default:
+            fmt.Println("Unknown command. Available commands: put, get, exit")
+        }
+    }
 }
