@@ -3,6 +3,7 @@ package main
 import (
 	"chord_dns/chord"
 	"chord_dns/dns"
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -18,7 +19,22 @@ type ChordNode struct {
 	server *chord.HTTPNodeServer
 }
 
+// TestConfig holds the flag values for different tests
+type TestConfig struct {
+	RunAll         bool
+	TestPing       bool
+	TestJoin       bool
+	TestStabilize  bool
+	TestFingers    bool
+	TestOperations bool
+	TestDHT        bool
+}
+
 func main() {
+	// Define and parse flags
+	config := defineFlags()
+	flag.Parse()
+
 	// Process DNS data
 	inputFile := "dns/dns_data.json"
 	outputFile := "dns/hashed_dns_data.json"
@@ -30,11 +46,26 @@ func main() {
 	// Wait for servers to start
 	time.Sleep(2 * time.Second)
 
-	// Run test suite
-	runTestSuite(nodes)
+	// Run test suite with flags
+	runTestSuite(nodes, config)
 
 	fmt.Println("\nServers running. Press Ctrl+C to exit.")
 	select {}
+}
+
+func defineFlags() *TestConfig {
+	config := &TestConfig{}
+	
+	// Define flags
+	flag.BoolVar(&config.RunAll, "all", false, "Run all tests")
+	flag.BoolVar(&config.TestPing, "ping", false, "Test node connectivity")
+	flag.BoolVar(&config.TestJoin, "join", false, "Test node joining")
+	flag.BoolVar(&config.TestStabilize, "stabilize", false, "Test network stabilization")
+	flag.BoolVar(&config.TestFingers, "fingers", false, "Test finger tables")
+	flag.BoolVar(&config.TestOperations, "ops", false, "Test Put and Get operations")
+	flag.BoolVar(&config.TestDHT, "dht", false, "Print DHTs for each node")
+	
+	return config
 }
 
 func processDNS(inputFile, outputFile string) {
@@ -54,24 +85,4 @@ func initializeNodes() []ChordNode {
 		startServer(server, addr)
 	}
 	return nodes
-}
-
-func testFingerTable(nodes []*chord.Node) {
-	fmt.Println("Testing finger table maintenance...")
-
-	// Wait for finger tables to be populated
-	time.Sleep(5 * time.Second)
-
-	// Print finger table entries for all nodes
-	for _, node := range nodes {
-		fmt.Printf("\nNode %d Finger Table:\n", node.ID)
-		for j, finger := range node.FingerTable {
-			if finger != nil {
-				fmt.Printf("Entry %d -> Node %s (Address: %s)\n",
-					j, finger.ID, finger.Address)
-			} else {
-				fmt.Printf("Entry %d -> nil\n", j)
-			}
-		}
-	}
 }

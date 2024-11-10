@@ -10,7 +10,50 @@ import (
 	"time"
 )
 
-func runTestSuite(nodes []ChordNode) {
+
+func runTestSuite(nodes []ChordNode, config *TestConfig) {
+	// If no flags are set or -all is used, run all tests
+	if config.RunAll || (!config.TestPing && !config.TestJoin && !config.TestStabilize && 
+		!config.TestFingers && !config.TestOperations && !config.TestDHT) {
+		runAllTests(nodes)
+		return
+	}
+
+	// Run individual tests based on flags
+	if config.TestPing {
+		printSeparator("Testing Node Connectivity")
+		testPing(nodes)
+	}
+
+	if config.TestJoin {
+		printSeparator("Testing Node Joining")
+		testNodeJoining(nodes)
+		// Allow time for initial setup
+		time.Sleep(2 * time.Second)
+	}
+
+	if config.TestStabilize {
+		printSeparator("Testing Stabilization")
+		testStabilization(nodes)
+	}
+
+	if config.TestFingers {
+		printSeparator("Testing Finger Tables")
+		testFingerTables(nodes)
+	}
+
+	if config.TestOperations {
+		printSeparator("Testing Put and Get Operations")
+		testPutAndGet(nodes)
+	}
+
+	if config.TestDHT {
+		printSeparator("Printing DHTs for Each Node")
+		testPrintDHTs(nodes)
+	}
+}
+
+func runAllTests(nodes []ChordNode) {
 	printSeparator("Testing Node Connectivity")
 	testPing(nodes)
 
