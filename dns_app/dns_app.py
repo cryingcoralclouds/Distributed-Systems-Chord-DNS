@@ -78,8 +78,8 @@ class ChordDNSResolver:
         click.echo("Cache stats after initialization:")
         click.echo(json.dumps(self.cache.get_cache_stats(), indent=2))
         
-    def hash_domain(self, domain: str) -> str: #REPLACE WITH OUR HASH
-        md5_hash = hashlib.md5(str.encode()).digest()
+    def hash_domain(self, domain):
+        md5_hash = hashlib.md5(domain.encode()).digest()
         
         seed = (md5_hash[0] | 
             (md5_hash[1] << 8) | 
