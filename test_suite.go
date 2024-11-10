@@ -4,6 +4,8 @@ import (
 	"chord_dns/chord"
 	"fmt"
 	"log"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -114,41 +116,88 @@ func testFingerTables(nodes []ChordNode) {
 }
 
 func testPutAndGet(nodes []ChordNode) {
-	testKeys := []string{"google.com", "wikipedia.org", "reddit.com"}
-	testValues := []string{"172.217.20.206", "208.80.154.224", "151.101.193.140"}
+    testData := []struct {
+        domain string
+        ip     string
+    }{
+        {"google.com", "172.217.20.206"},
+        {"wikipedia.org", "208.80.154.224"},
+        {"reddit.com", "151.101.193.140"},
+        {"facebook.com", "31.13.77.36"},
+        {"youtube.com", "74.125.65.91"},
+        {"amazon.com", "205.251.242.103"},
+        {"twitter.com", "199.59.149.230"},
+        {"linkedin.com", "108.174.10.10"},
+        {"instagram.com", "157.240.241.174"},
+		{"netflix.com", "52.6.137.65"},
+        {"yahoo.com", "98.137.149.56"},
+        {"microsoft.com", "40.76.4.15"},
+        {"apple.com", "17.253.144.10"},
+    }
 
-	hashedKeys := make([]string, len(testKeys))
-	for i, key := range testKeys {
-		hashedKeys[i] = chord.HashKey(key).String()
-	}
+    fmt.Println("\nTesting Put operations:")
+    // Store each key-value pair through any node - the ring will handle routing
+    for _, data := range testData {
+        // Hash the domain name
+        hashedKey := chord.HashKey(data.domain).String()
+        
+        // Pick a random node to initiate the put operation
+        randomNode := nodes[rand.Intn(len(nodes))]
+        
+        // Store the key-value pair
+        err := randomNode.node.Put(hashedKey, []byte(data.ip))
+        if err != nil {
+            fmt.Printf("   Failed to put domain '%s' (hash: %s): %v\n", 
+                data.domain, hashedKey, err)
+            continue
+        }
+        
+        // Find which node is actually responsible for this key
+        keyBigInt := new(big.Int)
+        keyBigInt.SetString(hashedKey, 10)
+        responsibleNode := randomNode.node.FindResponsibleNode(keyBigInt)
+        
+        fmt.Printf("   Successfully stored domain '%s'\n", data.domain)
+        fmt.Printf("   Hash: %s\n", hashedKey)
+        fmt.Printf("   Responsible Node: %s\n", responsibleNode.ID)
+        fmt.Printf("   IP: %s\n\n", data.ip)
+    }
 
-	fmt.Println("Testing Put operations:")
-	for i, hashedKey := range hashedKeys {
-		nodeIndex := i % len(nodes)
-		err := nodes[nodeIndex].node.Put(hashedKey, []byte(testValues[i]))
-		if err != nil {
-			log.Printf("Failed to put key-value %d: %v\n", i+1, err)
-			continue
-		}
-		fmt.Printf("Successfully stored hashed key '%s' through node %d\n", hashedKey, nodeIndex+1)
-	}
+    // Wait for potential replication/stabilization
+    time.Sleep(2 * time.Second)
 
-	time.Sleep(2 * time.Second)
-
-	fmt.Println("\nTesting Get operations:")
-	for i, hashedKey := range hashedKeys {
-		for j := 0; j < len(nodes); j++ {
-			nodeIndex := (i + j) % len(nodes)
-			value, err := nodes[nodeIndex].node.Get(hashedKey)
-			if err != nil {
-				fmt.Printf("Error getting hashed key '%s' through node %d: %v\n", hashedKey, nodeIndex+1, err)
-				continue
-			}
-			fmt.Printf("Successfully retrieved hashed key '%s' = '%s' through node %d\n",
-				hashedKey, string(value), nodeIndex+1)
-			break
-		}
-	}
+    fmt.Println("\nTesting Get operations:")
+    // Try to retrieve each key-value pair from different nodes
+    for _, data := range testData {
+        hashedKey := chord.HashKey(data.domain).String()
+        
+        // Try retrieving from each node to verify routing works
+        var retrieved bool
+        for _, node := range nodes {
+            value, err := node.node.Get(hashedKey)
+            if err != nil {
+                continue // Try next node
+            }
+            
+            if string(value) == data.ip {
+                fmt.Printf("   Successfully retrieved domain '%s'\n", data.domain)
+                fmt.Printf("   Hash: %s\n", hashedKey)
+                fmt.Printf("   Retrieved through Node: %s\n", node.node.ID)
+                fmt.Printf("   IP: %s\n\n", string(value))
+                retrieved = true
+                break
+            } else {
+                fmt.Printf("   Value mismatch for domain '%s'\n", data.domain)
+                fmt.Printf("   Expected: %s\n", data.ip)
+                fmt.Printf("   Got: %s\n\n", string(value))
+            }
+        }
+        
+        if !retrieved {
+            fmt.Printf("   Failed to retrieve domain '%s' from any node\n", data.domain)
+            fmt.Printf("   Hash: %s\n\n", hashedKey)
+        }
+    }
 }
 
 func testPrintDHTs(nodes []ChordNode) {
