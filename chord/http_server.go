@@ -9,12 +9,11 @@ HTTPNodeServer:
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"math/big"
 	"net/http"
-	"time"
+	// "time"
 )
 
 type HTTPNodeServer struct {
@@ -159,23 +158,44 @@ func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Parse the key from the URL path
 	key := r.URL.Path[len("/store/"):]
 	if key == "" {
 		http.Error(w, "Key not provided", http.StatusBadRequest)
 		return
 	}
 
-	// Read the value from request body
+	// Read value from body
 	value, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
 
-	// Store the key-value pair
-	s.node.DHT[key] = value
-	s.node.Versions[key] = time.Now().UnixNano()
+	// Find responsible node
+	hash := new(big.Int)
+	hash.SetString(key, 10)
+	responsible := s.node.FindResponsibleNode(hash)
+
+	if responsible.ID.Cmp(s.node.ID) == 0 {
+		// We are responsible, store locally
+		s.node.DHT[key] = value
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// We're not responsible - forward to closest preceding node
+	closestPred := s.node.GetClosestPrecedingFinger(hash)
+	if closestPred == nil {
+		http.Error(w, "No valid node found for forwarding", http.StatusInternalServerError)
+		return
+	}
+
+	// Forward the store request
+	ctx := r.Context()
+	if err := closestPred.Client.StoreKey(ctx, key, value); err != nil {
+		http.Error(w, "Failed to forward store request", http.StatusInternalServerError)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -186,36 +206,71 @@ func (s *HTTPNodeServer) handleGetKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse the key from the URL path
-	key := r.URL.Path[len("/key/"):]
-	if key == "" {
+	hashedDomain := r.URL.Path[len("/key/"):]
+	if hashedDomain == "" {
 		http.Error(w, "Key not provided", http.StatusBadRequest)
 		return
 	}
 
-	// Get the value and version
-	value, exists := s.node.DHT[key]
-	// print the value and version for that key in terminal
-	fmt.Println("Value: ", value)
-	if !exists {
-		http.Error(w, "Key not found", http.StatusNotFound)
+	// Convert hashedDomain to big.Int for Chord operations
+	hash := new(big.Int)
+	hash.SetString(hashedDomain, 10)
+
+	// Check if this node is responsible
+	responsible := s.node.FindResponsibleNode(hash)
+
+	if responsible.ID.Cmp(s.node.ID) == 0 {
+		// We are responsible, look up in our DHT
+		ip, exists := s.node.DHT[hashedDomain]
+		if !exists {
+			response := DNSResponse{
+				Found:   false,
+				Version: 0,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		version := s.node.Versions[hashedDomain]
+
+		// Return the IP if found
+		response := DNSResponse{
+			IP:      string(ip),
+			Found:   true,
+			Version: version,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	version := s.node.Versions[key]
-
-	// Create response
-	response := struct {
-		Value   []byte `json:"value"`
-		Version int64  `json:"version"`
-	}{
-		Value:   value,
-		Version: version,
+	// We're not responsible - forward to closest preceding node
+	closestPred := s.node.GetClosestPrecedingFinger(hash)
+	if closestPred == nil {
+		http.Error(w, "No valid node found for forwarding", http.StatusInternalServerError)
+		return
 	}
 
+	// Forward the request
+	ctx := r.Context()
+	value, version, err := closestPred.Client.GetKey(ctx, hashedDomain)
+	if err != nil {
+		if err == ErrKeyNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to forward request", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the response from the forwarded request
+	response := DNSResponse{
+		IP:      string(value),
+		Found:   true,
+		Version: version,
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-	// response send it non-json encoded
-	// w.Write(response.Value)
-
 }
