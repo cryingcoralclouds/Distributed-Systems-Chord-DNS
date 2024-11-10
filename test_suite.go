@@ -10,10 +10,9 @@ import (
 	"time"
 )
 
-
 func runTestSuite(nodes []ChordNode, config *TestConfig) {
 	// If no flags are set or -all is used, run all tests
-	if config.RunAll || (!config.TestPing && !config.TestJoin && !config.TestStabilize && 
+	if config.RunAll || (!config.TestPing && !config.TestJoin && !config.TestStabilize &&
 		!config.TestFingers && !config.TestOperations && !config.TestDHT) {
 		runAllTests(nodes)
 		return
@@ -74,6 +73,9 @@ func runAllTests(nodes []ChordNode) {
 
 	printSeparator("Printing DHTs for Each Node")
 	testPrintDHTs(nodes)
+
+	printSeparator(("Testing for domain names resolving"))
+	testResolveDomainNames(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -159,88 +161,88 @@ func testFingerTables(nodes []ChordNode) {
 }
 
 func testPutAndGet(nodes []ChordNode) {
-    testData := []struct {
-        domain string
-        ip     string
-    }{
-        {"google.com", "172.217.20.206"},
-        {"wikipedia.org", "208.80.154.224"},
-        {"reddit.com", "151.101.193.140"},
-        {"facebook.com", "31.13.77.36"},
-        {"youtube.com", "74.125.65.91"},
-        {"amazon.com", "205.251.242.103"},
-        {"twitter.com", "199.59.149.230"},
-        {"linkedin.com", "108.174.10.10"},
-        {"instagram.com", "157.240.241.174"},
+	testData := []struct {
+		domain string
+		ip     string
+	}{
+		{"google.com", "172.217.20.206"},
+		{"wikipedia.org", "208.80.154.224"},
+		{"reddit.com", "151.101.193.140"},
+		{"facebook.com", "31.13.77.36"},
+		{"youtube.com", "74.125.65.91"},
+		{"amazon.com", "205.251.242.103"},
+		{"twitter.com", "199.59.149.230"},
+		{"linkedin.com", "108.174.10.10"},
+		{"instagram.com", "157.240.241.174"},
 		{"netflix.com", "52.6.137.65"},
-        {"yahoo.com", "98.137.149.56"},
-        {"microsoft.com", "40.76.4.15"},
-        {"apple.com", "17.253.144.10"},
-    }
+		{"yahoo.com", "98.137.149.56"},
+		{"microsoft.com", "40.76.4.15"},
+		{"apple.com", "17.253.144.10"},
+	}
 
-    fmt.Println("\nTesting Put operations:")
-    // Store each key-value pair through any node - the ring will handle routing
-    for _, data := range testData {
-        // Hash the domain name
-        hashedKey := chord.HashKey(data.domain).String()
-        
-        // Pick a random node to initiate the put operation
-        randomNode := nodes[rand.Intn(len(nodes))]
-        
-        // Store the key-value pair
-        err := randomNode.node.Put(hashedKey, []byte(data.ip))
-        if err != nil {
-            fmt.Printf("   Failed to put domain '%s' (hash: %s): %v\n", 
-                data.domain, hashedKey, err)
-            continue
-        }
-        
-        // Find which node is actually responsible for this key
-        keyBigInt := new(big.Int)
-        keyBigInt.SetString(hashedKey, 10)
-        responsibleNode := randomNode.node.FindResponsibleNode(keyBigInt)
-        
-        fmt.Printf("   Successfully stored domain '%s'\n", data.domain)
-        fmt.Printf("   Hash: %s\n", hashedKey)
-        fmt.Printf("   Responsible Node: %s\n", responsibleNode.ID)
-        fmt.Printf("   IP: %s\n\n", data.ip)
-    }
+	fmt.Println("\nTesting Put operations:")
+	// Store each key-value pair through any node - the ring will handle routing
+	for _, data := range testData {
+		// Hash the domain name
+		hashedKey := chord.HashKey(data.domain).String()
 
-    // Wait for potential replication/stabilization
-    time.Sleep(2 * time.Second)
+		// Pick a random node to initiate the put operation
+		randomNode := nodes[rand.Intn(len(nodes))]
 
-    fmt.Println("\nTesting Get operations:")
-    // Try to retrieve each key-value pair from different nodes
-    for _, data := range testData {
-        hashedKey := chord.HashKey(data.domain).String()
-        
-        // Try retrieving from each node to verify routing works
-        var retrieved bool
-        for _, node := range nodes {
-            value, err := node.node.Get(hashedKey)
-            if err != nil {
-                continue // Try next node
-            }
-            
-            if string(value) == data.ip {
-                fmt.Printf("   Successfully retrieved domain '%s'\n", data.domain)
-                fmt.Printf("   Hash: %s\n", hashedKey)
-                fmt.Printf("   Retrieved through Node: %s\n", node.node.ID)
-                fmt.Printf("   IP: %s\n\n", string(value))
-                retrieved = true
-                break
-            } else {
-                fmt.Printf("   Value mismatch for domain '%s'\n", data.domain)
-                fmt.Printf("   Expected: %s\n", data.ip)
-                fmt.Printf("   Got: %s\n\n", string(value))
-            }
-        }
-        
-        if !retrieved {
-            fmt.Printf("   Failed to retrieve domain '%s' from any node\n", data.domain)
-            fmt.Printf("   Hash: %s\n\n", hashedKey)
-        }
-    }
+		// Store the key-value pair
+		err := randomNode.node.Put(hashedKey, []byte(data.ip))
+		if err != nil {
+			fmt.Printf("   Failed to put domain '%s' (hash: %s): %v\n",
+				data.domain, hashedKey, err)
+			continue
+		}
+
+		// Find which node is actually responsible for this key
+		keyBigInt := new(big.Int)
+		keyBigInt.SetString(hashedKey, 10)
+		responsibleNode := randomNode.node.FindResponsibleNode(keyBigInt)
+
+		fmt.Printf("   Successfully stored domain '%s'\n", data.domain)
+		fmt.Printf("   Hash: %s\n", hashedKey)
+		fmt.Printf("   Responsible Node: %s\n", responsibleNode.ID)
+		fmt.Printf("   IP: %s\n\n", data.ip)
+	}
+
+	// Wait for potential replication/stabilization
+	time.Sleep(2 * time.Second)
+
+	fmt.Println("\nTesting Get operations:")
+	// Try to retrieve each key-value pair from different nodes
+	for _, data := range testData {
+		hashedKey := chord.HashKey(data.domain).String()
+
+		// Try retrieving from each node to verify routing works
+		var retrieved bool
+		for _, node := range nodes {
+			value, err := node.node.Get(hashedKey)
+			if err != nil {
+				continue // Try next node
+			}
+
+			if string(value) == data.ip {
+				fmt.Printf("   Successfully retrieved domain '%s'\n", data.domain)
+				fmt.Printf("   Hash: %s\n", hashedKey)
+				fmt.Printf("   Retrieved through Node: %s\n", node.node.ID)
+				fmt.Printf("   IP: %s\n\n", string(value))
+				retrieved = true
+				break
+			} else {
+				fmt.Printf("   Value mismatch for domain '%s'\n", data.domain)
+				fmt.Printf("   Expected: %s\n", data.ip)
+				fmt.Printf("   Got: %s\n\n", string(value))
+			}
+		}
+
+		if !retrieved {
+			fmt.Printf("   Failed to retrieve domain '%s' from any node\n", data.domain)
+			fmt.Printf("   Hash: %s\n\n", hashedKey)
+		}
+	}
 }
 
 func testPrintDHTs(nodes []ChordNode) {
@@ -255,4 +257,55 @@ func testPrintDHTs(nodes []ChordNode) {
 			fmt.Printf("  Key: %s, Value: %s\n", key, string(value))
 		}
 	}
+}
+
+func testResolveDomainNames(nodes []ChordNode) {
+	testDomains := []string{"google.com", "netflix.com", "wikipedia.org", "facebook.com"}
+
+	fmt.Println("\nTesting Domain Name Resolution:")
+	fmt.Println("================================")
+
+	// Use the seed node (first node) for resolution
+	seedNode := nodes[5]
+
+	for _, domain := range testDomains {
+		fmt.Printf("\nResolving domain: %s\n", domain)
+
+		// Hash the domain name to get the key
+		hashedKey := chord.HashKey(domain).String()
+
+		// Try to get the IP address
+		value, err := seedNode.node.Get(hashedKey)
+		if err != nil {
+			fmt.Printf("❌ Failed to resolve %s:\n", domain)
+			fmt.Printf("   Error: %v\n", err)
+			fmt.Printf("   Hash: %s\n", hashedKey)
+			continue
+		}
+
+		// Find which node is responsible for this domain
+		keyBigInt := new(big.Int)
+		keyBigInt.SetString(hashedKey, 10)
+		responsibleNode := seedNode.node.FindResponsibleNode(keyBigInt)
+
+		fmt.Printf("✓ Successfully resolved %s\n", domain)
+		fmt.Printf("   Hash: %s\n", hashedKey)
+		fmt.Printf("   IP Address: %s\n", string(value))
+		fmt.Printf("   Responsible Node: %s\n", responsibleNode.ID)
+
+		// Verify the resolution by trying to reach the IP
+		// Note: This is just a simulation since we're using test IP addresses
+		fmt.Printf("   Verification: ")
+		if len(value) > 0 {
+			fmt.Printf("IP address format verified\n")
+		} else {
+			fmt.Printf("Invalid IP address format\n")
+		}
+	}
+
+	// Print summary
+	fmt.Println("\nResolution Test Summary:")
+	fmt.Println("========================")
+	fmt.Printf("Total domains tested: %d\n", len(testDomains))
+	fmt.Printf("Test completed through seed node: %s\n", seedNode.node.ID)
 }

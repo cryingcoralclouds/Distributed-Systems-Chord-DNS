@@ -119,7 +119,7 @@ class ChordDNSResolver:
             
             # Make API request to Chord network --> WHAT IS THE EXACT API REQUEST
             response = requests.get(
-                f"{chord_node}/key/{domain}",
+                f"{chord_node}/DNSkey/{domain}",
                 # params={"key": domain_hash}
             )
             
@@ -167,7 +167,7 @@ def load_seed_nodes(seed_file: str) -> Dict[str, str]:
         return {}
 
 @click.command()
-@click.option('--chord-nodes', required=True, help='Comma-separated list of Chord node URLs') #CAN INIT WITH OUR SEED NODES
+@click.option('--chord-nodes', help='Comma-separated list of Chord node URLs') #CAN INIT WITH OUR SEED NODES
 @click.option('--seed-file', default='seed_nodes.json', help='JSON file containing seed DNS entries')
 @click.option('--cache-ttl', default=300, help='Cache TTL in seconds')
 def main(chord_nodes: str, seed_file: str, cache_ttl: int):

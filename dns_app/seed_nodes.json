@@ -1,7 +1,7 @@
 {
-    "google.com": "172.217.20.206",
-    "facebook.com": "163.70.128.35",
-    "youtube.com": "142.250.178.14",
-    "twitter.com": "104.244.42.65",
-    "amazon.com": "205.251.242.103"
+    "node1": "http://localhost:8001",
+    "node2": "http://localhost:8002",
+    "node3": "http://localhost:8003",
+    "node4": "http://localhost:8004",
+    "node5": "http://localhost:8005"
 }
