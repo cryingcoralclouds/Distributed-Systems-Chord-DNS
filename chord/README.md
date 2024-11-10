@@ -1,104 +1,86 @@
-# Files
-`config.go`  
-Contains constants and variables.  
+# Distributed Systems Chord DNS
 
-`node.go`  
-Contains `Node` struct definition and core functions.  
-- `NewNode` - to initialize a node.
-- `Join` - to allow a new node to join the ring.
-- `A` - to locate the node responsible for a specific key.
-- `Get` - Retrieves the value associated with a key by finding the responsible node.
-- `Put` - Stores a key-value pair on the node responsible for the key's hash, either locally or by forwarding the request to the correct node.
-- `stabilize()` - Periodically checks and updates the node's successor and notifies it of the node’s presence.
-- `startStabilize()` - Starts a periodic loop that calls stabilize at regular intervals.
-- `fixFingers()` - Periodically refreshes entries in the finger table to ensure they point to the correct successors.
-- `startFixFingers()` - Starts a periodic loop that calls fixFingers at regular intervals to maintain the finger table.
+## Overview
+This project implements a distributed DNS service using the Chord protocol. The service allows nodes to join a network, store DNS records, and resolve domain names through a distributed hash table (DHT). The implementation includes a test suite to validate the functionality of the Chord nodes and their interactions.
 
-`remote_node.go`  
-Contains the concept of remote node and interactions over the 
-network.
+## Set Up
+To run the application, ensure you have Go installed. In the parent directory, run:
 
-`http_server.go`  
-Hosts an HTTP server for the node.
-- Exposes endpoints like `/ping`, `/successor`, `/predecessor` with handler functions to allow other nodes to ping this node, find successor, and get predecessor.
+## Files
+- **`config.go`**: Contains constants and variables.
+- **`node.go`**: Contains the `Node` struct definition and core functions.
+  - `NewNode`: Initializes a node.
+  - `Join`: Allows a new node to join the ring.
+  - `Find`: Locates the node responsible for a specific key.
+  - `Get`: Retrieves the value associated with a key by finding the responsible node.
+  - `Put`: Stores a key-value pair on the node responsible for the key's hash, either locally or by forwarding the request to the correct node.
+  - `stabilize()`: Periodically checks and updates the node's successor and notifies it of the node’s presence.
+  - `startStabilize()`: Starts a periodic loop that calls stabilize at regular intervals.
+  - `fixFingers()`: Periodically refreshes entries in the finger table to ensure they point to the correct successors.
+  - `startFixFingers()`: Starts a periodic loop that calls fixFingers at regular intervals to maintain the finger table.
+- **`remote_node.go`**: Contains the concept of remote nodes and interactions over the network.
+- **`http_server.go`**: Hosts an HTTP server for the node.
+  - Exposes endpoints like `/ping`, `/successor`, `/predecessor` with handler functions to allow other nodes to ping this node, find successors, and get predecessors.
+- **`http_client.go`**: Allows a node to send HTTP requests to other nodes' HTTP servers.
+  - `Ping`: Checks if a remote node is alive.
+  - `FindSuccessor`: Locates the successor node responsible for a given ID by sending an HTTP request to the target node.
+  - `GetPredecessor`: Retrieves the predecessor of the target node by sending an HTTP request to its server.
+  - `Notify`: Notifies a target node of this node's presence by sending a POST request with this node's info, necessary for stabilization.
+  - `StoreKey`: Forwards a key-value pair to the target node for storage via an HTTP POST request.
+  - `GetKey`: Retrieves a key’s value and version from the target node by sending a GET request.
+  - `DeleteKey`: To be implemented in future work.
+  - `TransferKeys`: To be implemented in future work.
+- **`messages.go`**: Contains `NodeMsg` definition and other message-related structures.
+- **`finger_table.go`**: Contains finger table and routing logic.
+- **`utils.go`**: Contains utility functions.
+  - `HashKey`: Generates consistent hashing (i.e., same hashes for the same input, and different hashes for different inputs).
+  - `between`: Checks if an ID is in between two IDs.
+  - `CompareNodes`: Compares two node IDs and returns whether the first is "less than," "greater than," or "equal to" the second.
+- **`main.go`**: Contains the main application logic and local tests.
+  - `testPing`: Tests if each node's HTTP server is running and responds to ping requests.
+  - `testNodeJoining`: Tests if a new node can join the ring through an introducer node.
+  - `testStabilization`: Tests if nodes update successors and predecessors correctly over multiple iterations.
+  - `testPutAndGet`: Tests if key-value pairs can be stored and retrieved correctly.
+  - `testFingerTable`: Tests if the finger table entries for each node are correctly populated.
 
-`http_client.go`  
-Allows a node to send HTTP req to other nodes' HTTP servers.
-- `Ping` - to check if a remote node is alive.
-- `FindSuccessor` - to locate successor node responsible for a given ID by sending an HTTP request to the target node.
-- `GetPredecessor` - to retrieve the predecessor of the target node by sending an HTTP request to its server.
-- `Notify` - to nodify a target node of this node's presence by sending a POST request with this node's info, necessary for stabilization.
-- `StoreKey` - to forward a key-value pair to the target node for storage via an HTTP POST request.
-- `GetKey` - to retrieve a key’s value and version from the target node by sending a GET request.
-- `DeleteKey` - to be implemented by Checkpoint 3.
-- `TransferKeys` - to be implemented by Checkpoint 3.
 
-`messages.go`  
-Contains `NodeMsg` definition and other message related stuff.  
+## Working with the Code
+We can focus on local implementation and ensure the code works before incorporating Docker. 
 
-`finger_table.go`  
-Contains finger table and routing.  
-  
-`utils.go`  
-Contains utility functions.
-- `HashKey` - to generate consistent hashing i.e. same hashes for same input, and different hashes for different inputs.
-- `between` - to check if an ID is in between two IDs.  
-- `CompareNodes` - to compare two node IDs and returns whether the first is "less than," "greater than," or "equal to" the second
+### Testing the Implementation
+To run the test suite, you can use the following commands:
 
-`main.go`  
-For now, it contains local tests and no Docker tests yet. Tested with only 2 nodes.
-- `testPing` tests if:
-    - Each node's HTTP server is running.
-    - Each node responds to the ping request with an HTTP 200 status to indicate that it's alive.
-- `testNodeJoining` tests if:
-    - node2 can join the ring through node1, which acts as an introducer.
-    - node2 successfully establishes successor and predecessor.
-- `testStabilization` tests if:
-    - Nodes update successors and predecessors correctly over multiple iterations.
-    - Over time, node1 and node2 maintain accurate knowledge of each other's positions.
-    - Nodes' finger table and successor lists are updated correctly.
-- `testPutAndGet` tests if:
-    - We can store a key-value pair.
-    - We can retrieve the value through any node in the ring.
-    - For non-existent keys, the correct error is returned.
-    - The routing of requests works correctly.
-- `testFingerTable` tests if:
-    - The finger table entries for each node are correctly populated.
-    - It prints the contents of the finger table for both nodes, showing which nodes are referenced in the finger table and if any entries are `nil`.
-    - This helps verify that the finger table maintenance is functioning as expected and that nodes have accurate routing information.
+- To run all tests:
+  ```bash
+  go run main.go -all
+  ```
 
-# Working with the code
-If I'm not wrong, we can focus on local implementation and make sure the code works first before incorporating Docker.
-- Use Docker Compose to define multiple containers, each representing a separate node.
-- When transitioning from local to Docker, change local host to service name for base URL in `NewHTTPNodeClient`, e.g. from http://localhost:8081 to http://node2:8081
+- To run specific tests:
+  ```bash
+  go run main.go -join -fingers -stabilize -ops -dht
+  ```
 
-## Go and Docker
-Note that initialising nodes on Docker and the `NewNode()` function in `chord.go` are two separate things.  
-- `NewNode()` will only run if it's explicitly called in your code, usually in the `main()` function.  
-- Docker simply starts the container, which executes the command specified in your Dockerfile or docker-compose.yml, often something like go run main.go.  
-- To run the functions in `chord.go` like hw1, you can call them in another file e.g. `chord_test.go`.  
+### Available Tests
+- **Join Test**: Tests if a node can successfully join the Chord ring.
+- **Finger Table Test**: Verifies that the finger tables of the nodes are correctly populated.
+- **Stabilization Test**: Ensures that nodes update their successors and predecessors correctly over time.
+- **Put and Get Operations Test**: Simulates storing and retrieving DNS records, demonstrating how users would input domain names and their corresponding IP addresses.
+- **DHT Test**: Prints the distributed hash tables for each node.
 
-How the logic in our Go application relates to Docker
-- NewNode() is responsible for creating the logical node in our Go application.  
-- Docker containers simulate multiple instances of your application, with each container running a unique node initialized by NewNode().
+## Node Joining Process
+When a node starts, it initializes itself and attempts to join the Chord ring. The first node creates a new ring, while subsequent nodes join through an introducer node. Each node is assigned a unique address based on the port it runs on, allowing it to act as both a server and a client for handling HTTP requests.
 
-Using goroutines for HTTP servers  
-- Each node needs to handle incoming HTTP requests from other nodes while also performing background tasks (e.g., stabilizing, fixing finger tables, checking the predecessor).
-- Running the HTTP server in a separate goroutine allows each node to accept requests concurrently without blocking other tasks.
+## DNS Resolution
+The `testPutAndGet` function simulates how users would input domain names and their corresponding IP addresses. It stores these key-value pairs in the Chord ring, allowing for efficient retrieval. The DNS queries are resolved using the Chord lookup mechanism, which finds the responsible node for a given domain.
 
-## Next Steps
-According to Claude, these are the next steps in order of priority:  
-1) **Periodic Maintenance Routines**  
-    - **fixFingers()**: This function is designed to periodically refresh the entries in the finger table to ensure they point to the correct successors. 
-    - **checkPredecessor()**: This function is intended to detect node failures and maintain the integrity of the network.
+## Future Work
+Currently, the DNS application (`dns_app`) is not interacting with the Chord ring properly. Future enhancements will focus on:
+- Implementing caching mechanisms to improve performance.
+- Adding fault tolerance features, such as key replication, to ensure data integrity and availability in case of node failures.
+- Enhancing the interaction between the DNS resolver and the Chord network to allow seamless DNS queries.
 
-While these functions are already implemented, they require thorough testing to ensure they operate correctly, especially since they are called within goroutines. 
-
-### Current Challenges
-Currently, we are experiencing an issue where the print statements for the finger tables are returning null or blank entries. This could be attributed to several factors:
-- **Timing Issues**: The finger table may not be updated in time before the print statements are executed, particularly in a scenario with only two nodes. The limited number of nodes may not provide enough data for the finger table to populate correctly.
-- **Update Mechanism**: There may be a problem with how the finger table is being updated, which could lead to incomplete or incorrect entries.
-
+## Conclusion
+This project serves as a foundation for building a distributed DNS service using the Chord protocol. The current implementation provides basic functionality, and future work will enhance its robustness and efficiency.
 2) HTTP Transport Layer
     - Set up HTTP endpoints and implement request/response handling for DeleteKey and TransferKey (by Checkpoint 3)
 
@@ -116,39 +98,3 @@ Currently, we are experiencing an issue where the print statements for the finge
     - Create DNS record structure
     - Implement DNS lookup using the Chord DHT
     - Add TTL handling for DNS records
-
-## To see outputs in the terminal
-1) To run main file, from the parent directory run
-    ```
-    # Run all tests with 10 nodes
-    go run main.go -test=all
-
-    # Run just the join test with 5 nodes
-    go run main.go -nodes=5 -test=join
-
-    # Run put/get test with custom base port
-    go run main.go -baseport=9001 -test=putget
-
-    # Run stabilization test with 15 nodes
-    go run main.go -nodes=15 -test=stabilize
-    ```
-2) (Ignore test folder for now, don't really need it) To see test outputs, from the parent directory run
-    ```
-    go test ./chord
-    ```
-3) You can also see log outputs on Docker Desktop after running
-    ```
-    docker-compose -f docker/docker-compose.yml up --build
-    ```
-4) To see logs from a specific node e.g. node 1, which is named docker-node1-1, from the parent directory run   
-    ```
-    docker logs -f docker-node1-1
-    ```
-5) This is a bit extra but if you want try ping another node from the terminal, run
-    ```
-    go run main.go
-    ```
-    Then, in another terminal, to ping node with 8001 port, run
-    ```
-    curl http://localhost:8001/ping
-    ```
