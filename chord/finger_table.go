@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-
-	// "math/rand"
+	"math/rand"
 	"time"
 )
 
@@ -185,9 +184,6 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
 // }
 
 func (n *Node) startFixFingers() {
-	// Start with first finger
-	currentFinger := 0
-
 	ticker := time.NewTicker(FixFingersInterval)
 	defer ticker.Stop()
 
@@ -200,7 +196,10 @@ func (n *Node) startFixFingers() {
 				continue
 			}
 
-			// Fix current finger
+			// Choose a random finger index to update
+			currentFinger := rand.Intn(M)
+
+			// Fix the randomly selected finger
 			start := calculateFingerStart(n.ID, currentFinger)
 			successor := n.FindResponsibleNode(start)
 
@@ -210,9 +209,6 @@ func (n *Node) startFixFingers() {
 					n.FingerTable[currentFinger] = successor
 				}
 			}
-
-			// Move to next finger
-			currentFinger = (currentFinger + 1) % M
 		}
 	}
 }
