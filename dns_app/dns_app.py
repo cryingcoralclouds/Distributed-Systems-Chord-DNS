@@ -1,4 +1,4 @@
-# running the file python dns_app.py --chord-nodes="http://localhost:8001,http://localhost:8002" 
+# running the file python dns_app.py --chord-nodes="http://localhost:8001,http://localhost:8010" 
 # OR --seed-file="seed_nodes.json" 
 from flask import Flask
 import requests
@@ -66,6 +66,7 @@ class DNSCache:
 class ChordDNSResolver:
     def __init__(self, chord_nodes: list, cache_ttl: int = 300, seed_nodes: Dict[str, str] = None, hash_file: str = "hash_map.json"):
         self.load_balancer = ModuloLoadBalancer(chord_nodes)
+        self.chord_nodes = chord_nodes
         self.cache = DNSCache(ttl_seconds=cache_ttl)
         
         # Initialize cache with seed nodes if provided
@@ -110,6 +111,7 @@ class ChordDNSResolver:
                 "load_balancer_status": self.load_balancer.get_node_status()
             }
         
+<<<<<<< Updated upstream
         try:
             # Hash the domain
             # domain_hash = self.hash_domain(domain)
@@ -126,58 +128,79 @@ class ChordDNSResolver:
             if response.status_code == 200:
                 result = response.json()
                 ip_address = result.get("value")
+=======
+        # Hash the domain
+        domain_hash = self.hash_domain(domain)
+        nodes_tried = []
+
+        for chord_node in self.chord_nodes:
+            nodes_tried.append(chord_node)
+        
+            try:                                
+                # Make API request to Chord network --> WHAT IS THE EXACT API REQUEST
+                response = requests.get(
+                    f"{chord_node}/key/{domain_hash}",
+                    # params={"key": domain_hash}
+                )
+>>>>>>> Stashed changes
                 
-                # Store in cache
-                self.cache.put(domain, ip_address)
-                
-                return {
-                    "domain": domain,
-                    "ip": ip_address,
-                    "source": "chord",
-                    "node_used": chord_node,
-                    "timestamp": datetime.now().isoformat(),
-                    "load_balancer_status": self.load_balancer.get_node_status()
-                }
-            else:
-                return {
-                    "domain": domain,
-                    "error": "Domain not found",
-                    "node_used": chord_node,
-                    "timestamp": datetime.now().isoformat(),
-                    "load_balancer_status": self.load_balancer.get_node_status()
-                }
-                
-        except requests.RequestException as e:
-            return {
-                "domain": domain,
-                "error": f"Failed to resolve: {str(e)}",
-                "timestamp": datetime.now().isoformat(),
-                "load_balancer_status": self.load_balancer.get_node_status()
-            }
+                if response.status_code == 200:
+                    result = response.json()
+                    ip_address = result.get("value")
+                    
+                    # Store in cache
+                    self.cache.put(domain, ip_address)
+                    
+                    return {
+                        "domain": domain,
+                        "ip": ip_address,
+                        "source": "chord",
+                        "node_used": chord_node,
+                        "timestamp": datetime.now().isoformat(),
+                        "load_balancer_status": self.load_balancer.get_node_status()
+                    }
+                    
+            except requests.RequestException as e:
+                click.echo(f"Error querying node {chord_node}: {e}")
+        return {
+            "domain": domain,
+            "error": "Domain not found or all nodes unreachable",
+            "timestamp": datetime.now().isoformat(),
+            "load_balancer_status": self.load_balancer.get_node_status()
+        }
 
 def load_seed_nodes(seed_file: str) -> Dict[str, str]:
     try:
         with open(seed_file, 'r') as f:
-            return json.load(f)
+            return json.load(f).get("bootstrap_nodes", [])
     except FileNotFoundError:
         click.echo(f"Warning: Seed file {seed_file} not found. Starting with empty cache.")
-        return {}
+        return []
     except json.JSONDecodeError:
         click.echo(f"Warning: Invalid JSON in seed file {seed_file}. Starting with empty cache.")
-        return {}
+        return []
 
 @click.command()
-@click.option('--chord-nodes', required=True, help='Comma-separated list of Chord node URLs') #CAN INIT WITH OUR SEED NODES
+@click.option('--chord-nodes', required=False, help='Comma-separated list of Chord node URLs') #CAN INIT WITH OUR SEED NODES
 @click.option('--seed-file', default='seed_nodes.json', help='JSON file containing seed DNS entries')
 @click.option('--cache-ttl', default=300, help='Cache TTL in seconds')
 def main(chord_nodes: str, seed_file: str, cache_ttl: int):
     """DNS resolver CLI using Chord protocol."""
     # Load seed nodes
-    seed_nodes = load_seed_nodes(seed_file)
+    nodes = []
+    if chord_nodes:
+        nodes.extend(chord_nodes.split(','))
+    nodes.extend(load_seed_nodes(seed_file))
     
-    # Initialize resolver with Chord nodes and seed entries
-    nodes = chord_nodes.split(',')
-    resolver = ChordDNSResolver(nodes, cache_ttl=cache_ttl, seed_nodes=seed_nodes, hash_file="hash_map.json")
+    if not nodes:
+        click.echo("Error: No Chord nodes provided via --chord-nodes or seed file.")
+        exit(1)
+    
+    # Remove duplicates from the combined list
+    nodes = list(set(nodes))
+    click.echo(f"Using Chord nodes: {nodes}")
+
+    resolver = ChordDNSResolver(chord_nodes=nodes, cache_ttl=cache_ttl, seed_nodes=None, hash_file="hash_map.json")
     
     while True:
         domain = click.prompt('Enter domain name to resolve (or "exit" to quit)')
