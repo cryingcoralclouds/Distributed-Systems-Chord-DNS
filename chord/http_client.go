@@ -157,6 +157,8 @@ func (c *HTTPNodeClient) StoreKey(ctx context.Context, key string, value []byte)
 	return nil
 }
 
+// This is called when node receives a DNS query from DNS app. 
+// Creates HTTP GET req to the endpoint /key/{hashed_domain_name}
 func (c *HTTPNodeClient) GetKey(ctx context.Context, key string) ([]byte, int64, error) {
     req, err := http.NewRequestWithContext(ctx, "GET",
         fmt.Sprintf("%s/key/%s", c.baseURL, key), nil)
@@ -173,19 +175,21 @@ func (c *HTTPNodeClient) GetKey(ctx context.Context, key string) ([]byte, int64,
     if resp.StatusCode == http.StatusNotFound {
         return nil, 0, ErrKeyNotFound
     }
+
     if resp.StatusCode != http.StatusOK {
         return nil, 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
     }
 
-    var response struct {
-        Value   []byte `json:"value"`
-        Version int64  `json:"version"`
-    }
+    var response DNSResponse
     if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
         return nil, 0, fmt.Errorf("failed to decode response: %w", err)
     }
 
-    return response.Value, response.Version, nil
+    if !response.Found {
+        return nil, 0, ErrKeyNotFound
+    }
+
+    return []byte(response.IP), response.Version, nil
 }
 
 // Stub implementations for other required NodeClient interface methods
