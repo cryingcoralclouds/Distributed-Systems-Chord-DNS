@@ -104,14 +104,14 @@ class ChordDNSResolver:
         
         try:
             # Hash the domain
-            domain_hash = self.hash_domain(domain)
+            # domain_hash = self.hash_domain(domain)
             
             # Get next node using modulo load balancer
             chord_node = self.load_balancer.get_next_node()
             
             # Make API request to Chord network --> WHAT IS THE EXACT API REQUEST
             response = requests.get(
-                f"{chord_node}/key/{domain_hash}",
+                f"{chord_node}/key/{domain}",
                 # params={"key": domain_hash}
             )
             

@@ -9,6 +9,7 @@ HTTPNodeServer:
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math/big"
@@ -194,6 +195,8 @@ func (s *HTTPNodeServer) handleGetKey(w http.ResponseWriter, r *http.Request) {
 
 	// Get the value and version
 	value, exists := s.node.DHT[key]
+	// print the value and version for that key in terminal
+	fmt.Println("Value: ", value)
 	if !exists {
 		http.Error(w, "Key not found", http.StatusNotFound)
 		return
@@ -212,4 +215,7 @@ func (s *HTTPNodeServer) handleGetKey(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+	// response send it non-json encoded
+	// w.Write(response.Value)
+
 }
