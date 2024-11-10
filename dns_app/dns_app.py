@@ -64,31 +64,39 @@ class DNSCache:
         }
 
 class ChordDNSResolver:
-    def __init__(self, chord_nodes: list, cache_ttl: int = 300, seed_nodes: Dict[str, str] = None):
+    def __init__(self, chord_nodes: list, cache_ttl: int = 300, seed_nodes: Dict[str, str] = None, hash_file: str = "hash_map.json"):
         self.load_balancer = ModuloLoadBalancer(chord_nodes)
         self.cache = DNSCache(ttl_seconds=cache_ttl)
         
         # Initialize cache with seed nodes if provided
         if seed_nodes:
             self.initialize_seed_nodes(seed_nodes)
+
+         # Load the hash map from the file
+        self.hash_map = self.load_hash_map(hash_file)
             
     def initialize_seed_nodes(self, seed_nodes: Dict[str, str]):
         self.cache.bulk_insert(seed_nodes)
         click.echo(f"Initialized cache with {len(seed_nodes)} seed entries")
         click.echo("Cache stats after initialization:")
         click.echo(json.dumps(self.cache.get_cache_stats(), indent=2))
+
+    def load_hash_map(self, hash_file: str) -> Dict[str, str]:
+        """Load the domain-to-hash mapping from a JSON file."""
+        try:
+            with open(hash_file, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Hash file {hash_file} not found. Please provide a valid file.")
+        except json.JSONDecodeError:
+            raise ValueError(f"Invalid JSON format in {hash_file}.")
         
-    def hash_domain(self, domain: str) -> str: #REPLACE WITH OUR HASH
-        md5_hash = hashlib.md5(str.encode()).digest()
-        
-        seed = (md5_hash[0] | 
-            (md5_hash[1] << 8) | 
-            (md5_hash[2] << 16) | 
-            (md5_hash[3] << 24))
-        
-        rng = random.Random(seed)
-        result = rng.randrange(0, 1024)
-        return result
+    def hash_domain(self, domain: str) -> int:
+        """Return the hash for the domain based on the predefined JSON mapping."""
+        domain_hash = self.hash_map.get(domain)
+        if domain_hash is None:
+            raise ValueError(f"No hash found for domain: {domain}")
+        return int(domain_hash)
     
     def resolve_domain(self, domain: str) -> Dict:
         # Check cache first
@@ -169,7 +177,7 @@ def main(chord_nodes: str, seed_file: str, cache_ttl: int):
     
     # Initialize resolver with Chord nodes and seed entries
     nodes = chord_nodes.split(',')
-    resolver = ChordDNSResolver(nodes, cache_ttl=cache_ttl, seed_nodes=seed_nodes)
+    resolver = ChordDNSResolver(nodes, cache_ttl=cache_ttl, seed_nodes=seed_nodes, hash_file="hash_map.json")
     
     while True:
         domain = click.prompt('Enter domain name to resolve (or "exit" to quit)')
