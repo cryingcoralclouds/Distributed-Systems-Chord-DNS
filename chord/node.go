@@ -109,6 +109,12 @@ func (n *Node) Put(hashedKey string, value []byte) error {
 
 	log.Printf("Forwarded record: key=%s, value=%s", hashedKey, string(value))
 	return nil
+
+	// Replicate the key-value pair to the successor and predecessor
+    n.replicateKey(hashedKey, value)
+
+	// return nil
+
 }
 
 /*
@@ -130,6 +136,10 @@ func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error
 			continue
 		}
 
+		//replicate DHT to successor
+		n.Successors[i].DHT[key] = value
+		n.Successors[i].Versions[key] = time.Now().UnixNano()
+
 		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
 		err := n.Successors[i].Client.StoreKey(ctx, key, value)
 		cancel()
@@ -144,6 +154,12 @@ func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error
 	if replicaCount < ReplicationFactor {
 		return fmt.Errorf("failed to achieve desired replication factor: got %d, want %d", replicaCount, ReplicationFactor)
 	}
+
+    // Replicate to predecessor
+    if n.predecessor != nil {
+        n.predecessor.DHT[key] = value
+        n.predecessor.Versions[key] = time.Now().UnixNano()
+    }
 
 	return nil
 }
@@ -226,7 +242,23 @@ func (n *Node) getFromReplicas(key string) ([]byte, error) {
 		}
 	}
 
-	return nil, ErrKeyNotFound
+	// Check the successor
+    if n.successor != nil {
+        value, ok := n.successor.DHT[key]
+        if ok {
+            return value, true
+        }
+    }
+
+    // Check the predecessor
+    if n.predecessor != nil {
+        value, ok := n.predecessor.DHT[key]
+        if ok {
+            return value, true
+        }
+    }
+
+	return nil, false, ErrKeyNotFound
 }
 
 /*
@@ -320,6 +352,9 @@ func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 			keys[key] = value
 		}
 	}
+
+	// Replicate the key to the new node's successor and predecessor
+	newNode.replicateKey(key, value)
 
 	return keys, nil
 }
