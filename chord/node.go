@@ -12,6 +12,13 @@ import (
 
 const CheckPredecessorInterval = time.Second * 5 // Set your desired interval
 
+type KeyMetadata struct {
+    Value    []byte
+    Version  int64
+    IsPrimary bool
+    PrimaryNode *RemoteNode  // Store who is the primary node for this key
+}
+
 // Node represents a node in the Chord ring
 type Node struct {
 	ID                *big.Int
@@ -20,7 +27,7 @@ type Node struct {
 	Successors        []*RemoteNode
 	Predecessor       *RemoteNode
 	FingerTable       [M]*RemoteNode
-	DHT               map[string][]byte
+	DHT               map[string]KeyMetadata 
 	Versions          map[string]int64
 	ReplicationStatus map[string][]*RemoteNode
 
@@ -48,7 +55,7 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 		Address:           addr,
 		IsAlive:           true,
 		Successors:        make([]*RemoteNode, NumSuccessors),
-		DHT:               make(map[string][]byte),
+		DHT:               make(map[string]KeyMetadata),
 		Versions:          make(map[string]int64),
 		ReplicationStatus: make(map[string][]*RemoteNode),
 		ctx:               ctx,
@@ -77,38 +84,46 @@ Finds the responsible node for the hashed key.
 If current node is responsible, store locally. Otherwise, forward req with key-value to the responsible node.
 */
 func (n *Node) Put(hashedKey string, value []byte) error {
-	if !n.IsAlive {
-		return ErrNodeDown
-	}
+    if !n.IsAlive {
+        return ErrNodeDown
+    }
 
-	// Convert hashedKey to *big.Int
-	hash := new(big.Int)
-	if _, ok := hash.SetString(hashedKey, 10); !ok {
-		return fmt.Errorf("invalid hashed key: %s", hashedKey)
-	}
+    // Convert hashedKey to *big.Int
+    hash := new(big.Int)
+    if _, ok := hash.SetString(hashedKey, 10); !ok {
+        return fmt.Errorf("invalid hashed key: %s", hashedKey)
+    }
 
-	// Find the responsible node for the hashed key
-	responsible := n.FindResponsibleNode(hash)
+    // Find the responsible node for the hashed key
+    responsible := n.FindResponsibleNode(hash)
 
-	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
-	defer cancel()
+    ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
+    defer cancel()
 
-	// If we are the responsible node, store locally
-	if responsible.ID.Cmp(n.ID) == 0 {
-		n.DHT[hashedKey] = value
-		n.Versions[hashedKey] = time.Now().UnixNano()
-		log.Printf("Stored record locally: key=%s, value=%s", hashedKey, string(value))
-		return nil
-	}
+    // Create metadata
+    metadata := KeyMetadata{
+        Value:      value,
+        Version:    time.Now().UnixNano(),
+        IsPrimary:  responsible.ID.Cmp(n.ID) == 0,
+        PrimaryNode: responsible,
+    }
 
-	// Otherwise, forward the request to the responsible node
-	err := responsible.Client.StoreKey(ctx, hashedKey, value)
-	if err != nil {
-		return fmt.Errorf("failed to forward record to responsible node: %w", err)
-	}
+    // If we are the responsible node, store locally
+    if responsible.ID.Cmp(n.ID) == 0 {
+        n.DHT[hashedKey] = metadata
+        n.Versions[hashedKey] = metadata.Version
+        log.Printf("Stored record locally: key=%s, value=%s", hashedKey, string(value))
+        return nil
+    }
 
-	log.Printf("Forwarded record: key=%s, value=%s", hashedKey, string(value))
-	return nil
+    // Otherwise, forward the request to the responsible node
+    err := responsible.Client.StoreKey(ctx, hashedKey, metadata)
+    if err != nil {
+        return fmt.Errorf("failed to forward record to responsible node: %w", err)
+    }
+
+    log.Printf("Forwarded record: key=%s, value=%s", hashedKey, string(value))
+    return nil
 }
 
 /*
@@ -118,34 +133,41 @@ Ignores the primary node and counts how many replicas were successfully stored.
 Updates the ReplicationStatus map with the successful replicas.
 */
 func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error {
-	if len(n.Successors) < ReplicationFactor {
-		return fmt.Errorf("not enough successors for replication: need %d, have %d", ReplicationFactor, len(n.Successors))
-	}
+    if len(n.Successors) < ReplicationFactor {
+        return fmt.Errorf("not enough successors for replication: need %d, have %d", ReplicationFactor, len(n.Successors))
+    }
 
-	replicaCount := 0
-	n.ReplicationStatus[key] = []*RemoteNode{} // Initialize or reset replication status for key
+    replicaCount := 0
+    n.ReplicationStatus[key] = []*RemoteNode{} // Initialize or reset replication status for key
 
-	for i := 0; i < len(n.Successors) && replicaCount < ReplicationFactor; i++ {
-		if n.Successors[i] == nil || n.Successors[i].ID.Cmp(primary.ID) == 0 {
-			continue
-		}
+    // Create metadata for replicas
+    metadata := KeyMetadata{
+        Value:      value,
+        Version:    time.Now().UnixNano(),
+        IsPrimary:  false,
+        PrimaryNode: primary,
+    }
 
-		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-		err := n.Successors[i].Client.StoreKey(ctx, key, value)
-		cancel()
+    for i := 0; i < len(n.Successors) && replicaCount < ReplicationFactor; i++ {
+        if n.Successors[i] == nil || n.Successors[i].ID.Cmp(primary.ID) == 0 {
+            continue
+        }
 
-		if err == nil {
-			n.ReplicationStatus[key] = append(n.ReplicationStatus[key], n.Successors[i])
-			replicaCount++
-		}
+        ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+        err := n.Successors[i].Client.StoreReplica(ctx, key, metadata)
+        cancel()
 
-	}
+        if err == nil {
+            n.ReplicationStatus[key] = append(n.ReplicationStatus[key], n.Successors[i])
+            replicaCount++
+        }
+    }
 
-	if replicaCount < ReplicationFactor {
-		return fmt.Errorf("failed to achieve desired replication factor: got %d, want %d", replicaCount, ReplicationFactor)
-	}
+    if replicaCount < ReplicationFactor {
+        return fmt.Errorf("failed to achieve desired replication factor: got %d, want %d", replicaCount, ReplicationFactor)
+    }
 
-	return nil
+    return nil
 }
 
 /*
@@ -156,40 +178,40 @@ Retrieve the value if the node holds it; otherwise, forward the request to the r
 Return value.
 */
 func (n *Node) Get(hashedKey string) ([]byte, error) {
-	if !n.IsAlive {
-		return nil, ErrNodeDown
-	}
+    if !n.IsAlive {
+        return nil, ErrNodeDown
+    }
 
-	// Convert hashedKey to *big.Int
-	hash := new(big.Int)
-	if _, ok := hash.SetString(hashedKey, 10); !ok {
-		return nil, fmt.Errorf("invalid hashed key: %s", hashedKey)
-	}
+    // Convert hashedKey to *big.Int
+    hash := new(big.Int)
+    if _, ok := hash.SetString(hashedKey, 10); !ok {
+        return nil, fmt.Errorf("invalid hashed key: %s", hashedKey)
+    }
 
-	// Find the responsible node for the hashed key
-	responsible := n.FindResponsibleNode(hash)
+    // Find the responsible node for the hashed key
+    responsible := n.FindResponsibleNode(hash)
 
-	// If we are the responsible node, return locally stored value
-	if responsible.ID.Cmp(n.ID) == 0 {
-		value, exists := n.DHT[hashedKey]
-		if !exists {
-			return nil, ErrKeyNotFound
-		}
-		log.Printf("Retrieved record locally: key=%s, value=%s", hashedKey, string(value))
-		return value, nil
-	}
+    // If we are the responsible node, return locally stored value
+    if responsible.ID.Cmp(n.ID) == 0 {
+        metadata, exists := n.DHT[hashedKey]
+        if !exists {
+            return nil, ErrKeyNotFound
+        }
+        log.Printf("Retrieved record locally: key=%s, value=%s", hashedKey, string(metadata.Value))
+        return metadata.Value, nil
+    }
 
-	// Otherwise, forward the request to the responsible node
-	ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
-	defer cancel()
+    // Otherwise, forward the request to the responsible node
+    ctx, cancel := context.WithTimeout(n.ctx, time.Second*2)
+    defer cancel()
 
-	value, _, err := responsible.Client.GetKey(ctx, hashedKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve record from responsible node: %w", err)
-	}
+    value, _, err := responsible.Client.GetKey(ctx, hashedKey)
+    if err != nil {
+        return nil, fmt.Errorf("failed to retrieve record from responsible node: %w", err)
+    }
 
-	log.Printf("Retrieved record from responsible node: key=%s, value=%s", hashedKey, string(value))
-	return value, nil
+    log.Printf("Retrieved record from responsible node: key=%s, value=%s", hashedKey, string(value))
+    return value, nil
 }
 
 // Save replicateKey for later on
@@ -286,42 +308,47 @@ Handles the removal of a node from the ring.
 Transfers its keys to its predecessor and marks itself as not alive.
 */
 func (n *Node) Leave() error {
-	if !n.IsAlive {
-		return ErrNodeDown
-	}
+    if !n.IsAlive {
+        return ErrNodeDown
+    }
 
-	if n.Successors[0] != nil && n.Predecessor != nil {
-		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-		defer cancel()
+    if n.Successors[0] != nil && n.Predecessor != nil {
+        ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+        defer cancel()
 
-		keys, err := n.TransferKeys(n.Predecessor.ID, n.ID)
-		if err != nil {
-			return fmt.Errorf("failed to transfer keys: %w", err)
-		}
+        keys, err := n.TransferKeys(n.Predecessor.ID, n.ID)
+        if err != nil {
+            return fmt.Errorf("failed to transfer keys: %w", err)
+        }
 
-		for key, value := range keys {
-			if err := n.Predecessor.Client.StoreKey(ctx, key, value); err != nil {
-				return fmt.Errorf("failed to store transferred key %s: %w", key, err)
-			}
-		}
-	}
+        for key, value := range keys {
+            metadata := KeyMetadata{
+                Value:      value,
+                Version:    time.Now().UnixNano(),
+                IsPrimary:  true,
+                PrimaryNode: n.Predecessor,
+            }
+            if err := n.Predecessor.Client.StoreKey(ctx, key, metadata); err != nil {
+                return fmt.Errorf("failed to store transferred key %s: %w", key, err)
+            }
+        }
+    }
 
-	n.IsAlive = false
-	n.cancel()
-	return nil
+    n.IsAlive = false
+    n.cancel()
+    return nil
 }
 
 // Collects keys that belong to the node and prepares them for transfer to another node.
 func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
-	keys := make(map[string][]byte)
-	for key, value := range n.DHT {
-		hash := HashKey(key)
-		if Between(hash, start, end, true) {
-			keys[key] = value
-		}
-	}
-
-	return keys, nil
+    keys := make(map[string][]byte)
+    for key, metadata := range n.DHT {
+        hash := HashKey(key)
+        if Between(hash, start, end, true) {
+            keys[key] = metadata.Value
+        }
+    }
+    return keys, nil
 }
 
 /*
@@ -459,20 +486,35 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
     // Find primary node
     primary := n.FindResponsibleNode(hash)
     
+    // Create metadata
+    version := time.Now().UnixNano()
+    metadata := KeyMetadata{
+        Value:      value,
+        Version:    version,
+        IsPrimary:  primary.ID.Cmp(n.ID) == 0, // true if we are primary
+        PrimaryNode: primary,
+    }
+    
     // Store on primary
     ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
     defer cancel()
     
     if primary.ID.Cmp(n.ID) == 0 {
         // We are primary, store locally
-        n.DHT[hashedKey] = value
-        n.Versions[hashedKey] = time.Now().UnixNano()
+        n.DHT[hashedKey] = metadata
         
         // Replicate to successors
         successCount := 0
         for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
             if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
-                err := n.Successors[i].Client.StoreKey(ctx, hashedKey, value)
+                replicaData := KeyMetadata{
+                    Value:      value,
+                    Version:    version,
+                    IsPrimary:  false,
+                    PrimaryNode: primary,
+                }
+                
+                err := n.Successors[i].Client.StoreReplica(ctx, hashedKey, replicaData)
                 if err == nil {
                     successCount++
                     // Track replication status
@@ -489,7 +531,55 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
     }
 
     // Forward to primary
-    return primary.Client.StoreKey(ctx, hashedKey, value)
+    return primary.Client.StoreKey(ctx, hashedKey, metadata)
+}
+
+func (n *Node) ReplicateToSuccessors(key string, value []byte, version int64) error {
+    // Skip if we're not the primary node for this key
+    hash := HashKey(key)
+    if !Between(hash, n.Predecessor.ID, n.ID, true) {
+        return fmt.Errorf("not primary node for key %s", key)
+    }
+
+    // Store locally as primary
+    n.DHT[key] = KeyMetadata{
+        Value:    value,
+        Version:  version,
+        IsPrimary: true,
+        PrimaryNode: &RemoteNode{
+            ID: n.ID,
+            Address: n.Address,
+            Client: n.Client,
+        },
+    }
+
+    // Replicate to R-1 successors (where R is replication factor)
+    successCount := 0
+    for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
+        if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
+            ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+            defer cancel()
+
+            // Send both value and metadata
+            replicaData := KeyMetadata{
+                Value:     value,
+                Version:   version,
+                IsPrimary: false,
+                PrimaryNode: &RemoteNode{
+                    ID: n.ID,
+                    Address: n.Address,
+                    Client: n.Client,
+                },
+            }
+            
+            err := n.Successors[i].Client.StoreReplica(ctx, key, replicaData)
+            if err == nil {
+                successCount++
+            }
+        }
+    }
+
+    return nil
 }
 
 // CheckReplication verifies and repairs replication status
@@ -506,7 +596,7 @@ func (n *Node) CheckReplication() {
                 continue
             }
 
-            for key, value := range n.DHT {
+            for key, metadata := range n.DHT {
                 replicas := n.ReplicationStatus[key]
                 if len(replicas) < ReplicationFactor-1 {
                     // Need to create more replicas
@@ -526,7 +616,13 @@ func (n *Node) CheckReplication() {
                             }
                             
                             if !isReplica {
-                                err := n.Successors[i].Client.StoreKey(ctx, key, value)
+                                replicaData := KeyMetadata{
+                                    Value:      metadata.Value,
+                                    Version:    metadata.Version,
+                                    IsPrimary:  false,
+                                    PrimaryNode: metadata.PrimaryNode,
+                                }
+                                err := n.Successors[i].Client.StoreReplica(ctx, key, replicaData)
                                 if err == nil {
                                     successCount++
                                     n.ReplicationStatus[key] = append(n.ReplicationStatus[key], n.Successors[i])

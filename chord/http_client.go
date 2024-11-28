@@ -161,29 +161,36 @@ func (c *HTTPNodeClient) Notify(ctx context.Context, node *RemoteNode) error {
 }
 
 // Forwards key-value pair to another node over HTTP
-func (c *HTTPNodeClient) StoreKey(ctx context.Context, key string, value []byte) error {
-	req, err := http.NewRequestWithContext(ctx, "POST", 
-		fmt.Sprintf("%s/store/%s", c.baseURL, key), 
-		bytes.NewBuffer(value))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
+func (c *HTTPNodeClient) StoreKey(ctx context.Context, key string, metadata KeyMetadata) error {
+    data, err := json.Marshal(metadata)
+    if err != nil {
+        return fmt.Errorf("failed to marshal metadata: %w", err)
+    }
 
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
+    req, err := http.NewRequestWithContext(ctx, "POST", 
+        fmt.Sprintf("%s/store/%s", c.baseURL, key), 
+        bytes.NewBuffer(data))
+    if err != nil {
+        return fmt.Errorf("failed to create request: %w", err)
+    }
+    req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
 
-	return nil
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+    }
+
+    return nil
 }
 
 // This is called when node receives a DNS query from DNS app. 
 // Creates HTTP GET req to the endpoint /key/{hashed_domain_name}
+// Update GetKey in HTTPNodeClient to return the three expected values
 func (c *HTTPNodeClient) GetKey(ctx context.Context, key string) ([]byte, int64, error) {
     req, err := http.NewRequestWithContext(ctx, "GET",
         fmt.Sprintf("%s/key/%s", c.baseURL, key), nil)
@@ -205,20 +212,43 @@ func (c *HTTPNodeClient) GetKey(ctx context.Context, key string) ([]byte, int64,
         return nil, 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
     }
 
-    var response DNSResponse
-    if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+    var metadata KeyMetadata
+    if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
         return nil, 0, fmt.Errorf("failed to decode response: %w", err)
     }
 
-    if !response.Found {
-        return nil, 0, ErrKeyNotFound
+    return metadata.Value, metadata.Version, nil
+}
+
+func (c *HTTPNodeClient) StoreReplica(ctx context.Context, key string, metadata KeyMetadata) error {
+    data, err := json.Marshal(metadata)
+    if err != nil {
+        return fmt.Errorf("failed to marshal metadata: %w", err)
     }
 
-    return []byte(response.IP), response.Version, nil
+    req, err := http.NewRequestWithContext(ctx, "POST", 
+        fmt.Sprintf("%s/store-replica/%s", c.baseURL, key), 
+        bytes.NewBuffer(data))
+    if err != nil {
+        return fmt.Errorf("failed to create request: %w", err)
+    }
+    req.Header.Set("Content-Type", "application/json")
+
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+    }
+
+    return nil
 }
 
 // Stub implementations for other required NodeClient interface methods
-func (c *HTTPNodeClient) DeleteKey(ctx context.Context, key string, version int64) error {
+func (c *HTTPNodeClient) DeleteKey(ctx context.Context, key string, metadata KeyMetadata) error {
     return fmt.Errorf("not implemented")
 }
 

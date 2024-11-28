@@ -9,9 +9,10 @@ import (
 
 // NodeClient defines the interface for remote node communication
 type NodeClient interface {
-	StoreKey(ctx context.Context, key string, value []byte) error
-	GetKey(ctx context.Context, key string) ([]byte, int64, error)
-	DeleteKey(ctx context.Context, key string, version int64) error
+    StoreKey(ctx context.Context, key string, metadata KeyMetadata) error
+    GetKey(ctx context.Context, key string) ([]byte, int64, error)
+    StoreReplica(ctx context.Context, key string, metadata KeyMetadata) error
+	DeleteKey(ctx context.Context, key string, metadata KeyMetadata) error
 
 	FindSuccessor(ctx context.Context, id *big.Int) (*RemoteNode, error)
 	GetPredecessor(ctx context.Context) (*RemoteNode, error)

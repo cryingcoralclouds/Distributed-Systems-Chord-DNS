@@ -97,11 +97,11 @@ func runAllTests(nodes []ChordNode) {
     printSeparator("Printing DHTs for Each Node")
     testPrintDHTs(nodes)
 
-	printSeparator("Testing Replication")
-	printReplicationStatus(nodes)
-
 	printSeparator("Testing Successor Lists")
 	testSuccessorLists(nodes)
+
+	printSeparator("Testing Replication")
+	printReplicationStatus(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -272,17 +272,21 @@ func testPutAndGet(nodes []ChordNode) {
 }
 
 func testPrintDHTs(nodes []ChordNode) {
-	fmt.Println("Distributed Hash Tables (DHTs) for each node:")
-	for i, node := range nodes {
-		fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID.String())
-		if len(node.node.DHT) == 0 {
-			fmt.Println("  DHT is empty.")
-			continue
-		}
-		for key, value := range node.node.DHT {
-			fmt.Printf("  Key: %s, Value: %s\n", key, string(value))
-		}
-	}
+    fmt.Println("Distributed Hash Tables (DHTs) for each node:")
+    for i, node := range nodes {
+        fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID.String())
+        if len(node.node.DHT) == 0 {
+            fmt.Println("  DHT is empty.")
+            continue
+        }
+        for key, metadata := range node.node.DHT {
+            fmt.Printf("  Key: %s, Value: %s (Primary: %v)\n", 
+                key, string(metadata.Value), metadata.IsPrimary)
+            if !metadata.IsPrimary {
+                fmt.Printf("    Primary Node: %s\n", metadata.PrimaryNode.ID)
+            }
+        }
+    }
 }
 
 func interactiveDNSTest(nodes []ChordNode) {
@@ -412,10 +416,11 @@ func printReplicationStatus(nodes []ChordNode) {
         // Print primary node's information
         for i, node := range nodes {
             if node.node.ID.Cmp(primaryNode.ID) == 0 {
-                if value, exists := node.node.DHT[key]; exists {
+                if metadata, exists := node.node.DHT[key]; exists {
                     fmt.Printf("  - Node %d (ID: %s)\n", i+1, node.node.ID)
                     fmt.Printf("    Address: %s\n", node.node.Address)
-                    fmt.Printf("    Value: %s\n", string(value))
+                    fmt.Printf("    Value: %s\n", string(metadata.Value))
+                    fmt.Printf("    Primary: %v\n", metadata.IsPrimary)
                     primaryFound = true
                 }
                 break
@@ -437,10 +442,14 @@ func printReplicationStatus(nodes []ChordNode) {
             }
             
             // Check if this node has the key
-            if value, exists := node.node.DHT[key]; exists {
+            if metadata, exists := node.node.DHT[key]; exists {
                 fmt.Printf("  - Node %d (ID: %s)\n", i+1, node.node.ID)
                 fmt.Printf("    Address: %s\n", node.node.Address)
-                fmt.Printf("    Value: %s\n", string(value))
+                fmt.Printf("    Value: %s\n", string(metadata.Value))
+                fmt.Printf("    Primary: %v\n", metadata.IsPrimary)
+                if !metadata.IsPrimary && metadata.PrimaryNode != nil {
+                    fmt.Printf("    Primary Node: %s\n", metadata.PrimaryNode.ID)
+                }
                 replicaCount++
             }
         }
@@ -458,22 +467,13 @@ func printReplicationStatus(nodes []ChordNode) {
                 chord.ReplicationFactor)
         }
         
-        // Try to decode the actual domain from the hash
-        // This assumes we have a reverse mapping from hash to domain
-        // for _, data := range testData {
-        //     if chord.HashKey(data.domain).String() == key {
-        //         fmt.Printf("  Original Domain: %s\n", data.domain)
-        //         break
-        //     }
-        // }
-        
         fmt.Println(strings.Repeat("-", 50))
     }
 }
 
 func testSuccessorLists(nodes []ChordNode) {
     fmt.Println("Monitoring successor lists...")
-    for iteration := 0; iteration < 5; iteration++ {
+    for iteration := 0; iteration < 1; iteration++ {	// Putting one iteration for now
         fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
         time.Sleep(2 * time.Second)
 
