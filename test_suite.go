@@ -62,6 +62,11 @@ func runTestSuite(nodes []ChordNode, config *TestConfig) {
         printSeparator("Printing DHTs for Each Node")
         testPrintDHTs(nodes)
     }
+
+	if config.TestReplication {
+        printSeparator("Testing Replication")
+        printReplicationStatus(nodes)
+    }
 }
 
 // Update runAllTests to optionally include interactive test
@@ -86,6 +91,9 @@ func runAllTests(nodes []ChordNode) {
 
     printSeparator("Printing DHTs for Each Node")
     testPrintDHTs(nodes)
+
+	printSeparator("Testing Replication")
+	printReplicationStatus(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -200,7 +208,7 @@ func testPutAndGet(nodes []ChordNode) {
         randomNode := nodes[rand.Intn(len(nodes))]
         
         // Store the key-value pair
-        err := randomNode.node.Put(hashedKey, []byte(data.ip))
+        err := randomNode.node.ReplicatedPut(hashedKey, []byte(data.ip))
         if err != nil {
             fmt.Printf("   Failed to put domain '%s' (hash: %s): %v\n", 
                 data.domain, hashedKey, err)
@@ -310,7 +318,7 @@ func interactiveDNSTest(nodes []ChordNode) {
             randomNode := nodes[rand.Intn(len(nodes))]
             
             // Store the DNS record
-            err := randomNode.node.Put(hashedKey, []byte(ip))
+            err := randomNode.node.ReplicatedPut(hashedKey, []byte(ip))
             if err != nil {
                 fmt.Printf("Failed to store DNS record for '%s': %v\n", domain, err)
                 continue
@@ -367,5 +375,90 @@ func interactiveDNSTest(nodes []ChordNode) {
         default:
             fmt.Println("Unknown command. Available commands: put, get, exit")
         }
+    }
+}
+
+func printReplicationStatus(nodes []ChordNode) {
+    fmt.Println("\n=== Replication Status Across Network ===")
+    
+    // Create a map to store all unique keys
+    allKeys := make(map[string]bool)
+    for _, node := range nodes {
+        for key := range node.node.DHT {
+            allKeys[key] = true
+        }
+    }
+    
+    // For each key, find all nodes that have it
+    for key := range allKeys {
+        fmt.Printf("\nKey: %s\n", key)
+        
+        // Find the primary node (node responsible for this key)
+        keyBigInt := new(big.Int)
+        keyBigInt.SetString(key, 10)
+        primaryNode := nodes[0].node.FindResponsibleNode(keyBigInt)
+        
+        fmt.Printf("Primary Node:\n")
+        primaryFound := false
+        
+        // Print primary node's information
+        for i, node := range nodes {
+            if node.node.ID.Cmp(primaryNode.ID) == 0 {
+                if value, exists := node.node.DHT[key]; exists {
+                    fmt.Printf("  - Node %d (ID: %s)\n", i+1, node.node.ID)
+                    fmt.Printf("    Address: %s\n", node.node.Address)
+                    fmt.Printf("    Value: %s\n", string(value))
+                    primaryFound = true
+                }
+                break
+            }
+        }
+        
+        if !primaryFound {
+            fmt.Printf("  Warning: Primary node doesn't have the key!\n")
+        }
+        
+        // Print replica nodes' information
+        fmt.Printf("Replica Nodes:\n")
+        replicaCount := 0
+        
+        for i, node := range nodes {
+            // Skip if this is the primary node
+            if node.node.ID.Cmp(primaryNode.ID) == 0 {
+                continue
+            }
+            
+            // Check if this node has the key
+            if value, exists := node.node.DHT[key]; exists {
+                fmt.Printf("  - Node %d (ID: %s)\n", i+1, node.node.ID)
+                fmt.Printf("    Address: %s\n", node.node.Address)
+                fmt.Printf("    Value: %s\n", string(value))
+                replicaCount++
+            }
+        }
+        
+        // Print replication summary
+        fmt.Printf("\nReplication Summary:\n")
+        fmt.Printf("  Total copies: %d (1 primary + %d replicas)\n", 
+            replicaCount+1, replicaCount)
+        
+        if replicaCount+1 < chord.ReplicationFactor {
+            fmt.Printf("  Warning: Current replication factor (%d) is below desired (%d)\n",
+                replicaCount+1, chord.ReplicationFactor)
+        } else {
+            fmt.Printf("  Status: Achieved desired replication factor of %d\n",
+                chord.ReplicationFactor)
+        }
+        
+        // Try to decode the actual domain from the hash
+        // This assumes we have a reverse mapping from hash to domain
+        // for _, data := range testData {
+        //     if chord.HashKey(data.domain).String() == key {
+        //         fmt.Printf("  Original Domain: %s\n", data.domain)
+        //         break
+        //     }
+        // }
+        
+        fmt.Println(strings.Repeat("-", 50))
     }
 }

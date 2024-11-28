@@ -29,6 +29,7 @@ type TestConfig struct {
 	TestOperations bool
 	TestDHT        bool
 	TestInteractive bool
+	TestReplication bool
 }
 
 func main() {
@@ -66,6 +67,7 @@ func defineFlags() *TestConfig {
 	flag.BoolVar(&config.TestOperations, "ops", false, "Test Put and Get operations")
 	flag.BoolVar(&config.TestDHT, "dht", false, "Print DHTs for each node")
 	flag.BoolVar(&config.TestInteractive, "interactive", false, "Run interactive DNS resolution test")
+	flag.BoolVar(&config.TestReplication, "replication", false, "Test replication")
 	
 	return config
 }

@@ -420,3 +420,100 @@ func (n *Node) fixFingers() {
 		}
 	}
 }
+
+// ReplicatedPut handles putting a value with replication
+func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
+    if !n.IsAlive {
+        return ErrNodeDown
+    }
+
+    // Convert hashedKey to *big.Int
+    hash := new(big.Int)
+    if _, ok := hash.SetString(hashedKey, 10); !ok {
+        return fmt.Errorf("invalid hashed key: %s", hashedKey)
+    }
+
+    // Find primary node
+    primary := n.FindResponsibleNode(hash)
+    
+    // Store on primary
+    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+    defer cancel()
+    
+    if primary.ID.Cmp(n.ID) == 0 {
+        // We are primary, store locally
+        n.DHT[hashedKey] = value
+        n.Versions[hashedKey] = time.Now().UnixNano()
+        
+        // Replicate to successors
+        successCount := 0
+        for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
+            if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
+                err := n.Successors[i].Client.StoreKey(ctx, hashedKey, value)
+                if err == nil {
+                    successCount++
+                    // Track replication status
+                    n.ReplicationStatus[hashedKey] = append(n.ReplicationStatus[hashedKey], n.Successors[i])
+                }
+            }
+        }
+        
+        if successCount < ReplicationFactor-1 {
+            log.Printf("Warning: Only achieved %d replicas out of %d desired", successCount+1, ReplicationFactor)
+        }
+        
+        return nil
+    }
+
+    // Forward to primary
+    return primary.Client.StoreKey(ctx, hashedKey, value)
+}
+
+// CheckReplication verifies and repairs replication status
+func (n *Node) CheckReplication() {
+    ticker := time.NewTicker(10 * time.Second)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-n.ctx.Done():
+            return
+        case <-ticker.C:
+            if !n.IsAlive {
+                continue
+            }
+
+            for key, value := range n.DHT {
+                replicas := n.ReplicationStatus[key]
+                if len(replicas) < ReplicationFactor-1 {
+                    // Need to create more replicas
+                    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+                    successCount := len(replicas)
+                    
+                    // Try to replicate to successors
+                    for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
+                        if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
+                            // Check if already a replica
+                            isReplica := false
+                            for _, replica := range replicas {
+                                if replica.ID.Cmp(n.Successors[i].ID) == 0 {
+                                    isReplica = true
+                                    break
+                                }
+                            }
+                            
+                            if !isReplica {
+                                err := n.Successors[i].Client.StoreKey(ctx, key, value)
+                                if err == nil {
+                                    successCount++
+                                    n.ReplicationStatus[key] = append(n.ReplicationStatus[key], n.Successors[i])
+                                }
+                            }
+                        }
+                    }
+                    cancel()
+                }
+            }
+        }
+    }
+}
