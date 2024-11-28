@@ -476,8 +476,6 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
     if !n.IsAlive {
         return ErrNodeDown
     }
-
-    log.Printf("[ReplicatedPut] Starting replication for key %s", hashedKey)
     
     // Convert hashedKey to *big.Int
     hash := new(big.Int)
@@ -487,7 +485,6 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
 
     // Find primary node
     primary := n.FindResponsibleNode(hash)
-    log.Printf("[ReplicatedPut] Found primary node %s for key %s", primary.ID, hashedKey)
     
     // Create metadata
     version := time.Now().UnixNano()
@@ -502,11 +499,9 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
     defer cancel()
     
     if primary.ID.Cmp(n.ID) == 0 {
-        log.Printf("[ReplicatedPut] We are primary for key %s, storing locally", hashedKey)
         n.DHT[hashedKey] = metadata
         
         // Log successor list state
-        log.Printf("[ReplicatedPut] Current successor list for key %s:", hashedKey)
         for i, succ := range n.Successors {
             if succ != nil {
                 log.Printf("  Successor[%d]: %s", i, succ.ID)
@@ -519,8 +514,6 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
         successCount := 0
         for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
             if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
-                log.Printf("[ReplicatedPut] Attempting to replicate key %s to successor %s", 
-                    hashedKey, n.Successors[i].ID)
                 
                 replicaData := KeyMetadata{
                     Value:      value,
@@ -533,8 +526,6 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
                 if err == nil {
                     successCount++
                     n.ReplicationStatus[hashedKey] = append(n.ReplicationStatus[hashedKey], n.Successors[i])
-                    log.Printf("[ReplicatedPut] Successfully replicated key %s to successor %s (%d/%d)", 
-                        hashedKey, n.Successors[i].ID, successCount, ReplicationFactor-1)
                 } else {
                     log.Printf("[ReplicatedPut] Failed to replicate to successor %s: %v", 
                         n.Successors[i].ID, err)
@@ -544,9 +535,6 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
             }
         }
         
-        log.Printf("[ReplicatedPut] Replication complete for key %s. Achieved %d/%d replicas", 
-            hashedKey, successCount+1, ReplicationFactor)
-        
         if successCount < ReplicationFactor-1 {
             log.Printf("[ReplicatedPut] Warning: Only achieved %d replicas out of %d desired for key %s", 
                 successCount+1, ReplicationFactor, hashedKey)
@@ -555,8 +543,6 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
         return nil
     }
 
-    log.Printf("[ReplicatedPut] We are not primary, forwarding key %s to primary node %s", 
-        hashedKey, primary.ID)
     return primary.Client.StoreKey(ctx, hashedKey, metadata)
 }
 

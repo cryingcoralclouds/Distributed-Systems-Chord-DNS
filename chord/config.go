@@ -10,7 +10,7 @@ import (
 const (
 	M                 = 10 // Number of bits in the identifier space (SHA-1)
 	NumSuccessors     = 3  // Number of successors for fault tolerance
-	ReplicationFactor = 3  // Number of replicas for each key
+	ReplicationFactor = 4  // Number of replicas for each key
 )
 
 // Timing constants
