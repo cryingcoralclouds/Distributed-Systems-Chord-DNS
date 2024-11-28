@@ -15,6 +15,7 @@ type NodeClient interface {
 
 	FindSuccessor(ctx context.Context, id *big.Int) (*RemoteNode, error)
 	GetPredecessor(ctx context.Context) (*RemoteNode, error)
+    GetSuccessors(ctx context.Context) ([]*RemoteNode, error)
 
 	Notify(ctx context.Context, node *RemoteNode) error
 	TransferKeys(ctx context.Context, start, end *big.Int) (map[string][]byte, error)

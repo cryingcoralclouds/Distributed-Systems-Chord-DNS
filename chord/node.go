@@ -330,43 +330,66 @@ updates successor if needed,
 notifies the successor about this node's presence
 */
 func (n *Node) stabilize() {
-	if !n.IsAlive || n.Successors[0] == nil {
-		return
-	}
+    if !n.IsAlive || n.Successors[0] == nil {
+        return
+    }
 
-	// If we're our own successor and there's a predecessor, make it our successor
-	if n.Successors[0].ID.Cmp(n.ID) == 0 && n.Predecessor != nil &&
-		n.Predecessor.ID.Cmp(n.ID) != 0 {
-		n.Successors[0] = n.Predecessor
-		return
-	}
+    // If we're our own successor and there's a predecessor, make it our successor
+    if n.Successors[0].ID.Cmp(n.ID) == 0 && n.Predecessor != nil &&
+        n.Predecessor.ID.Cmp(n.ID) != 0 {
+        n.Successors[0] = n.Predecessor
+        return
+    }
 
-	// Get successor's predecessor
-	pred, err := n.Successors[0].Client.GetPredecessor(n.ctx)
-	if err != nil {
-		log.Printf("[Stabilize] Error getting successor's predecessor: %v", err)
-		return
-	}
+    // Get successor's predecessor
+    pred, err := n.Successors[0].Client.GetPredecessor(n.ctx)
+    if err != nil {
+        log.Printf("[Stabilize] Error getting successor's predecessor: %v", err)
+        // Don't return here, continue to update successor list
+    } else if pred != nil && pred.ID.Cmp(n.ID) != 0 && pred.ID.Cmp(n.Successors[0].ID) != 0 {
+        // Update our immediate successor if needed
+        n.Successors[0] = pred
+    }
 
-	if pred != nil {
+    // Get successor list from our immediate successor
+    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+    defer cancel()
+    
+    successorList, err := n.Successors[0].Client.GetSuccessors(ctx)
+    if err != nil {
+        log.Printf("[Stabilize] Error getting successor list: %v", err)
+    } else {
+        // Update our successor list
+        // Keep our immediate successor (at index 0)
+        // Copy successor's list into our list starting at index 1
+        for i := 1; i < len(n.Successors); i++ {
+            if i-1 < len(successorList) {
+                n.Successors[i] = successorList[i-1]
+            } else {
+                n.Successors[i] = nil
+            }
+        }
+    }
 
-		// Update our successor if needed
-		if pred.ID.Cmp(n.ID) != 0 && pred.ID.Cmp(n.Successors[0].ID) != 0 {
-			n.Successors[0] = pred
-		}
-	}
+    // Create RemoteNode for self
+    self := &RemoteNode{
+        ID:      n.ID,
+        Address: n.Address,
+        Client:  n.Client,
+    }
 
-	// Create RemoteNode for self
-	self := &RemoteNode{
-		ID:      n.ID,
-		Address: n.Address,
-		Client:  n.Client,
-	}
+    // Notify our successor
+    if err := n.Successors[0].Client.Notify(n.ctx, self); err != nil {
+        log.Printf("[Stabilize] Error notifying successor: %v", err)
+    }
+}
 
-	// Notify our successor
-	if err := n.Successors[0].Client.Notify(n.ctx, self); err != nil {
-		log.Printf("[Stabilize] Error notifying successor: %v", err)
-	}
+// Add method to get successors list
+func (n *Node) GetSuccessors() []*RemoteNode {
+    if !n.IsAlive {
+        return nil
+    }
+    return n.Successors
 }
 
 // To loop stabilization

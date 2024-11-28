@@ -31,6 +31,7 @@ func (s *HTTPNodeServer) SetupRoutes() *http.ServeMux {
 	// Expose endpoints
 	mux.HandleFunc("/ping", s.handlePing)
 	mux.HandleFunc("/successor/", s.handleFindSuccessor)
+	mux.HandleFunc("/successors", s.handleGetSuccessors)
 	mux.HandleFunc("/predecessor", s.handleGetPredecessor)
 	mux.HandleFunc("/notify", s.handleNotify)
 	mux.HandleFunc("/store/", s.handleStoreKey)
@@ -95,6 +96,25 @@ func (s *HTTPNodeServer) handleFindSuccessor(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (s *HTTPNodeServer) handleGetSuccessors(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    successors := s.node.GetSuccessors()
+    if successors == nil {
+        successors = []*RemoteNode{} // Return empty array instead of null
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    if err := json.NewEncoder(w).Encode(successors); err != nil {
+        log.Printf("Error encoding successors: %v", err)
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
 }
 
 func (s *HTTPNodeServer) handleGetPredecessor(w http.ResponseWriter, r *http.Request) {

@@ -30,6 +30,7 @@ type TestConfig struct {
 	TestDHT        bool
 	TestInteractive bool
 	TestReplication bool
+	TestSuccessors bool
 }
 
 func main() {

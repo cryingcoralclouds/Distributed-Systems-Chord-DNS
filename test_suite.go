@@ -67,6 +67,11 @@ func runTestSuite(nodes []ChordNode, config *TestConfig) {
         printSeparator("Testing Replication")
         printReplicationStatus(nodes)
     }
+
+	if config.TestSuccessors {
+		printSeparator("Testing Successor Lists")
+		testSuccessorLists(nodes)
+	}
 }
 
 // Update runAllTests to optionally include interactive test
@@ -94,6 +99,9 @@ func runAllTests(nodes []ChordNode) {
 
 	printSeparator("Testing Replication")
 	printReplicationStatus(nodes)
+
+	printSeparator("Testing Successor Lists")
+	testSuccessorLists(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -460,5 +468,27 @@ func printReplicationStatus(nodes []ChordNode) {
         // }
         
         fmt.Println(strings.Repeat("-", 50))
+    }
+}
+
+func testSuccessorLists(nodes []ChordNode) {
+    fmt.Println("Monitoring successor lists...")
+    for iteration := 0; iteration < 5; iteration++ {
+        fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
+        time.Sleep(2 * time.Second)
+
+        for i, node := range nodes {
+            fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID)
+            fmt.Printf("Successor list (size: %d):\n", len(node.node.Successors))
+            
+            for j, successor := range node.node.Successors {
+                if successor != nil {
+                    fmt.Printf("  [%d] ID: %s, Address: %s\n", 
+                        j, successor.ID, successor.Address)
+                } else {
+                    fmt.Printf("  [%d] nil\n", j)
+                }
+            }
+        }
     }
 }

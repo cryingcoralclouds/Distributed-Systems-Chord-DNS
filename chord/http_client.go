@@ -74,6 +74,31 @@ func (c *HTTPNodeClient) FindSuccessor(ctx context.Context, id *big.Int) (*Remot
     return &node, nil
 }
 
+func (c *HTTPNodeClient) GetSuccessors(ctx context.Context) ([]*RemoteNode, error) {
+    req, err := http.NewRequestWithContext(ctx, "GET", 
+        fmt.Sprintf("%s/successors", c.baseURL), nil)    // Fixed URL formatting
+    if err != nil {
+        return nil, fmt.Errorf("failed to create request: %w", err)
+    }
+    
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get successors: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+    }
+
+    var successors []*RemoteNode
+    if err := json.NewDecoder(resp.Body).Decode(&successors); err != nil {
+        return nil, fmt.Errorf("failed to decode successors: %w", err)
+    }
+
+    return successors, nil
+}
+
 func (c *HTTPNodeClient) GetPredecessor(ctx context.Context) (*RemoteNode, error) {
     req, err := http.NewRequestWithContext(ctx, "GET", 
         fmt.Sprintf("%s/predecessor", c.baseURL), nil)
