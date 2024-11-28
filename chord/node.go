@@ -477,6 +477,8 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
         return ErrNodeDown
     }
 
+    log.Printf("[ReplicatedPut] Starting replication for key %s", hashedKey)
+    
     // Convert hashedKey to *big.Int
     hash := new(big.Int)
     if _, ok := hash.SetString(hashedKey, 10); !ok {
@@ -485,28 +487,41 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
 
     // Find primary node
     primary := n.FindResponsibleNode(hash)
+    log.Printf("[ReplicatedPut] Found primary node %s for key %s", primary.ID, hashedKey)
     
     // Create metadata
     version := time.Now().UnixNano()
     metadata := KeyMetadata{
         Value:      value,
         Version:    version,
-        IsPrimary:  primary.ID.Cmp(n.ID) == 0, // true if we are primary
+        IsPrimary:  primary.ID.Cmp(n.ID) == 0,
         PrimaryNode: primary,
     }
     
-    // Store on primary
     ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
     defer cancel()
     
     if primary.ID.Cmp(n.ID) == 0 {
-        // We are primary, store locally
+        log.Printf("[ReplicatedPut] We are primary for key %s, storing locally", hashedKey)
         n.DHT[hashedKey] = metadata
+        
+        // Log successor list state
+        log.Printf("[ReplicatedPut] Current successor list for key %s:", hashedKey)
+        for i, succ := range n.Successors {
+            if succ != nil {
+                log.Printf("  Successor[%d]: %s", i, succ.ID)
+            } else {
+                log.Printf("  Successor[%d]: nil", i)
+            }
+        }
         
         // Replicate to successors
         successCount := 0
         for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
             if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
+                log.Printf("[ReplicatedPut] Attempting to replicate key %s to successor %s", 
+                    hashedKey, n.Successors[i].ID)
+                
                 replicaData := KeyMetadata{
                     Value:      value,
                     Version:    version,
@@ -517,20 +532,31 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
                 err := n.Successors[i].Client.StoreReplica(ctx, hashedKey, replicaData)
                 if err == nil {
                     successCount++
-                    // Track replication status
                     n.ReplicationStatus[hashedKey] = append(n.ReplicationStatus[hashedKey], n.Successors[i])
+                    log.Printf("[ReplicatedPut] Successfully replicated key %s to successor %s (%d/%d)", 
+                        hashedKey, n.Successors[i].ID, successCount, ReplicationFactor-1)
+                } else {
+                    log.Printf("[ReplicatedPut] Failed to replicate to successor %s: %v", 
+                        n.Successors[i].ID, err)
                 }
+            } else {
+                log.Printf("[ReplicatedPut] Skipping successor[%d] (nil or self)", i)
             }
         }
         
+        log.Printf("[ReplicatedPut] Replication complete for key %s. Achieved %d/%d replicas", 
+            hashedKey, successCount+1, ReplicationFactor)
+        
         if successCount < ReplicationFactor-1 {
-            log.Printf("Warning: Only achieved %d replicas out of %d desired", successCount+1, ReplicationFactor)
+            log.Printf("[ReplicatedPut] Warning: Only achieved %d replicas out of %d desired for key %s", 
+                successCount+1, ReplicationFactor, hashedKey)
         }
         
         return nil
     }
 
-    // Forward to primary
+    log.Printf("[ReplicatedPut] We are not primary, forwarding key %s to primary node %s", 
+        hashedKey, primary.ID)
     return primary.Client.StoreKey(ctx, hashedKey, metadata)
 }
 
@@ -596,17 +622,32 @@ func (n *Node) CheckReplication() {
                 continue
             }
 
+            log.Printf("[CheckReplication] Starting periodic replication check")
+            log.Printf("[CheckReplication] Current DHT size: %d", len(n.DHT))
+
             for key, metadata := range n.DHT {
                 replicas := n.ReplicationStatus[key]
+                log.Printf("[CheckReplication] Checking key %s - Current replicas: %d/%d", 
+                    key, len(replicas), ReplicationFactor-1)
+
                 if len(replicas) < ReplicationFactor-1 {
-                    // Need to create more replicas
+                    log.Printf("[CheckReplication] Need to create more replicas for key %s", key)
+                    
                     ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
                     successCount := len(replicas)
                     
-                    // Try to replicate to successors
+                    // Log current successor list
+                    log.Printf("[CheckReplication] Current successor list:")
+                    for i, succ := range n.Successors {
+                        if succ != nil {
+                            log.Printf("  Successor[%d]: %s", i, succ.ID)
+                        } else {
+                            log.Printf("  Successor[%d]: nil", i)
+                        }
+                    }
+                    
                     for i := 0; i < len(n.Successors) && successCount < ReplicationFactor-1; i++ {
                         if n.Successors[i] != nil && n.Successors[i].ID.Cmp(n.ID) != 0 {
-                            // Check if already a replica
                             isReplica := false
                             for _, replica := range replicas {
                                 if replica.ID.Cmp(n.Successors[i].ID) == 0 {
@@ -616,23 +657,36 @@ func (n *Node) CheckReplication() {
                             }
                             
                             if !isReplica {
+                                log.Printf("[CheckReplication] Attempting to replicate key %s to successor %s", 
+                                    key, n.Successors[i].ID)
+                                
                                 replicaData := KeyMetadata{
                                     Value:      metadata.Value,
                                     Version:    metadata.Version,
                                     IsPrimary:  false,
                                     PrimaryNode: metadata.PrimaryNode,
                                 }
+                                
                                 err := n.Successors[i].Client.StoreReplica(ctx, key, replicaData)
                                 if err == nil {
                                     successCount++
                                     n.ReplicationStatus[key] = append(n.ReplicationStatus[key], n.Successors[i])
+                                    log.Printf("[CheckReplication] Successfully created new replica for key %s on node %s (%d/%d)", 
+                                        key, n.Successors[i].ID, successCount+1, ReplicationFactor)
+                                } else {
+                                    log.Printf("[CheckReplication] Failed to create replica on node %s: %v", 
+                                        n.Successors[i].ID, err)
                                 }
+                            } else {
+                                log.Printf("[CheckReplication] Successor %s is already a replica for key %s", 
+                                    n.Successors[i].ID, key)
                             }
                         }
                     }
                     cancel()
                 }
             }
+            log.Printf("[CheckReplication] Completed replication check cycle")
         }
     }
 }

@@ -91,14 +91,14 @@ func runAllTests(nodes []ChordNode) {
     printSeparator("Testing Finger Tables")
     testFingerTables(nodes)
 
+	printSeparator("Testing Successor Lists")
+	testSuccessorLists(nodes)
+	
     printSeparator("Testing Put and Get Operations")
     testPutAndGet(nodes)
 
     printSeparator("Printing DHTs for Each Node")
     testPrintDHTs(nodes)
-
-	printSeparator("Testing Successor Lists")
-	testSuccessorLists(nodes)
 
 	printSeparator("Testing Replication")
 	printReplicationStatus(nodes)

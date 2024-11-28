@@ -191,6 +191,8 @@ func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) 
         return
     }
 
+    log.Printf("[handleStoreKey] Received key %s from another node", key)
+
     // Find responsible node
     hash := new(big.Int)
     hash.SetString(key, 10)
@@ -198,6 +200,7 @@ func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) 
 
     if responsible.ID.Cmp(s.node.ID) == 0 {
         // We are responsible, store as primary
+        log.Printf("[handleStoreKey] We are responsible for key %s, storing as primary", key)
         metadata.IsPrimary = true
         metadata.PrimaryNode = &RemoteNode{
             ID:      s.node.ID,
@@ -206,14 +209,55 @@ func (s *HTTPNodeServer) handleStoreKey(w http.ResponseWriter, r *http.Request) 
         }
         s.node.DHT[key] = metadata
         
-        // Trigger replication
-        go s.node.ReplicateToSuccessors(key, metadata.Value, metadata.Version)
+        // Replicate to successors
+        log.Printf("[handleStoreKey] Starting replication for forwarded key %s", key)
+        successCount := 0
+        
+        // Log successor list
+        log.Printf("[handleStoreKey] Current successor list for key %s:", key)
+        for i, succ := range s.node.Successors {
+            if succ != nil {
+                log.Printf("  Successor[%d]: %s", i, succ.ID)
+            } else {
+                log.Printf("  Successor[%d]: nil", i)
+            }
+        }
+
+        for i := 0; i < len(s.node.Successors) && successCount < ReplicationFactor-1; i++ {
+            if s.node.Successors[i] != nil && s.node.Successors[i].ID.Cmp(s.node.ID) != 0 {
+                log.Printf("[handleStoreKey] Attempting to replicate key %s to successor %s", 
+                    key, s.node.Successors[i].ID)
+                
+                replicaData := KeyMetadata{
+                    Value:      metadata.Value,
+                    Version:    metadata.Version,
+                    IsPrimary:  false,
+                    PrimaryNode: metadata.PrimaryNode,
+                }
+                
+                ctx := r.Context()
+                err := s.node.Successors[i].Client.StoreReplica(ctx, key, replicaData)
+                if err == nil {
+                    successCount++
+                    s.node.ReplicationStatus[key] = append(s.node.ReplicationStatus[key], s.node.Successors[i])
+                    log.Printf("[handleStoreKey] Successfully replicated key %s to successor %s (%d/%d)", 
+                        key, s.node.Successors[i].ID, successCount, ReplicationFactor-1)
+                } else {
+                    log.Printf("[handleStoreKey] Failed to replicate to successor %s: %v", 
+                        s.node.Successors[i].ID, err)
+                }
+            }
+        }
+
+        log.Printf("[handleStoreKey] Replication complete for key %s. Achieved %d/%d replicas", 
+            key, successCount+1, ReplicationFactor)
         
         w.WriteHeader(http.StatusOK)
         return
     }
 
     // Forward to responsible node
+    log.Printf("[handleStoreKey] Forwarding key %s to responsible node %s", key, responsible.ID)
     ctx := r.Context()
     if err := responsible.Client.StoreKey(ctx, key, metadata); err != nil {
         http.Error(w, "Failed to forward store request", http.StatusInternalServerError)
