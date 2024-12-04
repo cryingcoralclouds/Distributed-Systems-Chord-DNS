@@ -12,8 +12,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
+	"strings"
 )
 
 type HTTPNodeClient struct {
@@ -22,9 +24,24 @@ type HTTPNodeClient struct {
 }
 
 func NewHTTPNodeClient(address string) NodeClient {
+    // Remove any existing http:// prefix
+    address = strings.TrimPrefix(address, "http://")
+    
+    // If the address only contains a port (e.g., ":8001"), 
+    // this is an error because we need to know which node
+    if strings.HasPrefix(address, ":") {
+        // Instead of assuming localhost, we should error
+        // or get the node name from configuration
+        log.Printf("Warning: Address '%s' only contains port, full node address required", address)
+        return nil
+    }
+
+    // Ensure we have the http:// prefix
+    baseURL := fmt.Sprintf("http://%s", address)
+    
     return &HTTPNodeClient{
         client:  &http.Client{},
-        baseURL: fmt.Sprintf("http://localhost%s", address), // e.g. http://localhost:8001
+        baseURL: baseURL,
     }
 }
 

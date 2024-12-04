@@ -130,10 +130,11 @@ func testNodeJoining(nodes []ChordNode) {
 	log.Println("Node 1 successfully created new ring")
 	time.Sleep(500 * time.Millisecond)
 
+	bootstrapAddr := os.Getenv("BOOTSTRAP_ADDR")
 	introducer := &chord.RemoteNode{
-		ID:      nodes[0].node.ID,
-		Address: nodes[0].node.Address,
-		Client:  chord.NewHTTPNodeClient(nodes[0].node.Address),
+		ID:      chord.HashKey(bootstrapAddr),
+		Address: bootstrapAddr, // Should be "node0:8001"
+		Client:  chord.NewHTTPNodeClient(bootstrapAddr),
 	}
 
 	for i := 1; i < len(nodes); i++ {

@@ -1,0 +1,58 @@
+services:
+  node0:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8001:8001"  # External:Internal
+    environment:
+      - NODE_ID=0
+      - PORT=8001
+      - BOOTSTRAP=true
+      - NODE_ADDR=node0:8001  
+    networks:
+      - chord_network
+    volumes:
+      - ./dns:/app/dns
+
+  node1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8002:8001"  # Different external port (8002) but same internal port (8001)
+    environment:
+      - NODE_ID=1
+      - PORT=8001
+      - BOOTSTRAP=false
+      - BOOTSTRAP_ADDR=node0:8001
+    depends_on:
+      - node0
+    networks:
+      - chord_network
+    volumes:
+      - ./dns:/app/dns
+
+  node2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8003:8001"  # External port 8003
+    environment:
+      - NODE_ID=2
+      - PORT=8001
+      - BOOTSTRAP=false
+      - BOOTSTRAP_ADDR=node0:8001
+    depends_on:
+      - node0
+    networks:
+      - chord_network
+    volumes:
+      - ./dns:/app/dns
+
+# Add more nodes following the same pattern...
+
+networks:
+  chord_network:
+    driver: bridge

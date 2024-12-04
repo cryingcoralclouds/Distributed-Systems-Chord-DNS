@@ -6,7 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
+	"os"
+	"strconv"
 )
 
 const (
@@ -34,26 +35,46 @@ type TestConfig struct {
 }
 
 func main() {
-	// Define and parse flags
-	config := defineFlags()
-	flag.Parse()
+    // Get configuration from environment variables set by Docker
+    nodeID, err := strconv.Atoi(os.Getenv("NODE_ID"))
+    if err != nil {
+        log.Fatalf("Invalid NODE_ID: %v", err)
+    }
 
-	// Process DNS data
-	inputFile := "dns/dns_data.json"
-	outputFile := "dns/hashed_dns_data.json"
-	processDNS(inputFile, outputFile)
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8001"
+    }
 
-	// Initialize Chord nodes
-	nodes := initializeNodes()
+    isBootstrap := os.Getenv("BOOTSTRAP") == "true"
+    bootstrapAddr := os.Getenv("BOOTSTRAP_ADDR")
 
-	// Wait for servers to start
-	time.Sleep(2 * time.Second)
+    // Initialize single node
+    addr := ":" + port
+    node, server := createNode(addr)
 
-	// Run test suite with flags
-	runTestSuite(nodes, config)
+    // If this is not the bootstrap node, join the network
+    if !isBootstrap && bootstrapAddr != "" {
+        // Create a RemoteNode for the bootstrap node with proper ID initialization
+        introducer := &chord.RemoteNode{
+            ID:      chord.HashKey(bootstrapAddr), // Initialize ID by hashing the address
+            Address: bootstrapAddr,
+            Client:  chord.NewHTTPNodeClient(bootstrapAddr),
+        }
 
-	fmt.Println("\nServers running. Press Ctrl+C to exit.")
-	select {}
+        log.Printf("Attempting to join network through introducer at %s", bootstrapAddr)
+        if err := node.Join(introducer); err != nil {
+            log.Printf("Warning: Failed to join network: %v", err)
+        } else {
+            log.Printf("Successfully joined network through introducer")
+        }
+    }
+
+    // Start the server
+    log.Printf("Starting node %d on %s (Bootstrap: %v)", nodeID, addr, isBootstrap)
+    if err := server.Start(addr); err != nil {
+        log.Fatalf("Server failed: %v", err)
+    }
 }
 
 func defineFlags() *TestConfig {
