@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
+	"time"
 )
 
 const (
@@ -35,44 +35,50 @@ type TestConfig struct {
 }
 
 func main() {
-    // Get configuration from environment variables set by Docker
-    nodeID, err := strconv.Atoi(os.Getenv("NODE_ID"))
-    if err != nil {
-        log.Fatalf("Invalid NODE_ID: %v", err)
-    }
-
+    // Get configuration from environment variables
+    nodeID := os.Getenv("NODE_ID")
     port := os.Getenv("PORT")
     if port == "" {
         port = "8001"
     }
 
+    // Construct proper node address using container name
+    nodeName := fmt.Sprintf("node%s", nodeID)
+    nodeAddr := fmt.Sprintf("%s:%s", nodeName, port)
+
     isBootstrap := os.Getenv("BOOTSTRAP") == "true"
     bootstrapAddr := os.Getenv("BOOTSTRAP_ADDR")
 
-    // Initialize single node
-    addr := ":" + port
+    // Initialize node with full address
+    addr := nodeAddr
     node, server := createNode(addr)
 
     // If this is not the bootstrap node, join the network
     if !isBootstrap && bootstrapAddr != "" {
-        // Create a RemoteNode for the bootstrap node with proper ID initialization
         introducer := &chord.RemoteNode{
-            ID:      chord.HashKey(bootstrapAddr), // Initialize ID by hashing the address
+            ID:      chord.HashKey(bootstrapAddr),
             Address: bootstrapAddr,
             Client:  chord.NewHTTPNodeClient(bootstrapAddr),
         }
 
         log.Printf("Attempting to join network through introducer at %s", bootstrapAddr)
-        if err := node.Join(introducer); err != nil {
-            log.Printf("Warning: Failed to join network: %v", err)
-        } else {
-            log.Printf("Successfully joined network through introducer")
+        // Add retry logic for joining
+        maxRetries := 5
+        for i := 0; i < maxRetries; i++ {
+            if err := node.Join(introducer); err != nil {
+                log.Printf("Join attempt %d failed: %v", i+1, err)
+                time.Sleep(2 * time.Second)
+                continue
+            }
+            log.Printf("Successfully joined network")
+            break
         }
     }
 
-    // Start the server
-    log.Printf("Starting node %d on %s (Bootstrap: %v)", nodeID, addr, isBootstrap)
-    if err := server.Start(addr); err != nil {
+    // Start the server with the local port for binding
+    localAddr := fmt.Sprintf(":%s", port)
+    log.Printf("Starting node %s on %s (Bootstrap: %v)", nodeID, addr, isBootstrap)
+    if err := server.Start(localAddr); err != nil {
         log.Fatalf("Server failed: %v", err)
     }
 }

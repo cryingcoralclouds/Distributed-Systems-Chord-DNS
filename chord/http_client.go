@@ -15,6 +15,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -27,13 +28,22 @@ func NewHTTPNodeClient(address string) NodeClient {
     // Remove any existing http:// prefix
     address = strings.TrimPrefix(address, "http://")
     
-    // If the address only contains a port (e.g., ":8001"), 
-    // this is an error because we need to know which node
+    // If the address only contains a port, use the NODE_ADDR environment variable
     if strings.HasPrefix(address, ":") {
-        // Instead of assuming localhost, we should error
-        // or get the node name from configuration
-        log.Printf("Warning: Address '%s' only contains port, full node address required", address)
-        return nil
+        nodeAddr := os.Getenv("NODE_ADDR")
+        if nodeAddr != "" {
+            address = nodeAddr
+        } else {
+            // Fallback to node name based on NODE_ID
+            nodeID := os.Getenv("NODE_ID")
+            if nodeID != "" {
+                address = fmt.Sprintf("node%s%s", nodeID, address)
+            } else {
+                log.Printf("Warning: No NODE_ADDR or NODE_ID found, using localhost")
+                address = "localhost" + address
+            }
+        }
+        log.Printf("Using node address: %s", address)
     }
 
     // Ensure we have the http:// prefix

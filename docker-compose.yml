@@ -3,56 +3,89 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    container_name: chord-dns-node0
     ports:
-      - "8001:8001"  # External:Internal
+      - "8001:8001"
     environment:
       - NODE_ID=0
       - PORT=8001
       - BOOTSTRAP=true
-      - NODE_ADDR=node0:8001  
+      - NODE_ADDR=node0:8001
     networks:
-      - chord_network
+      chord_network:
+        aliases:
+          - node0
     volumes:
       - ./dns:/app/dns
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: on-failure
 
   node1:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    container_name: chord-dns-node1
     ports:
-      - "8002:8001"  # Different external port (8002) but same internal port (8001)
+      - "8002:8001"
     environment:
       - NODE_ID=1
       - PORT=8001
       - BOOTSTRAP=false
       - BOOTSTRAP_ADDR=node0:8001
+      - NODE_ADDR=node1:8001
     depends_on:
-      - node0
+      node0:
+        condition: service_healthy
     networks:
-      - chord_network
+      chord_network:
+        aliases:
+          - node1
     volumes:
       - ./dns:/app/dns
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: on-failure
 
   node2:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    container_name: chord-dns-node2
     ports:
-      - "8003:8001"  # External port 8003
+      - "8003:8001"
     environment:
       - NODE_ID=2
       - PORT=8001
       - BOOTSTRAP=false
       - BOOTSTRAP_ADDR=node0:8001
+      - NODE_ADDR=node2:8001
     depends_on:
-      - node0
+      node0:
+        condition: service_healthy
     networks:
-      - chord_network
+      chord_network:
+        aliases:
+          - node2
     volumes:
       - ./dns:/app/dns
-
-# Add more nodes following the same pattern...
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: on-failure
 
 networks:
   chord_network:
+    name: chord_network
     driver: bridge

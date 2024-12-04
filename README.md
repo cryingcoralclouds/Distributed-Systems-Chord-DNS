@@ -24,3 +24,15 @@ docker-compose -f docker/docker-compose.yml up --build
 ```bash
 docker-compose down # Stop the containers
 ```
+
+
+# Updated
+1) docker-compose up --build
+
+In another terminal,  
+2) docker exec -it chord-dns-node0 sh
+
+3)
+curl http://node0:8001/ping
+curl http://node1:8001/ping
+curl http://node2:8001/ping

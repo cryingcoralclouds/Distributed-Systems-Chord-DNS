@@ -28,6 +28,11 @@ func NewHTTPNodeServer(node *Node) *HTTPNodeServer {
 func (s *HTTPNodeServer) SetupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
+	// Add health check endpoint
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// Expose endpoints
 	mux.HandleFunc("/ping", s.handlePing)
 	mux.HandleFunc("/successor/", s.handleFindSuccessor)
