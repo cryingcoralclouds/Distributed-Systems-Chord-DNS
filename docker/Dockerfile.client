@@ -1,0 +1,13 @@
+# Base image for Python
+FROM python:3.9
+
+WORKDIR /app
+
+# Copy client script
+COPY ./simulate_client.py /app/simulate_client.py
+
+# Install dependencies
+RUN pip install requests
+
+# Run the client script
+CMD ["python3", "simulate_client.py"]

@@ -1,51 +1,30 @@
-# docker-compose.yml file will set-up multiple instances of the service to simulate a distributed environment. At the moment, three instances of the service, which can communicate with each other to perform the Chord protocol operations, will be set-up. This file also contains network settings for communication.
-
-# Docker Compose version: 3.8
 version: '3.8'
 
-# 3 services --- node1, node2, node3
 services:
-  node1:
+  chord-node:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.node
     ports:
-    # Map unique host port (8081) to the container port 8080 --- enables independent access to each instance on localhost
-      - "8081:8080"
-    # Environment variables that are used by Go app to identify node name, node port
-    ### TODO design app code to read these values ###
+      - "${NODE_PORT}:8080"  # Assign dynamic ports
     environment:
-      - NODE_NAME=node1
-      - NODE_PORT=8081
+      BASE_PORT: 8080        # Optional: starting base port
+      NUM_NODES: 1          # Optional: number of nodes
+    command: ["./chord_dns", "-all"] # Override CMD for tests
     networks:
-    # Custom network chord_network to allow nodes to communicate with each other
-      - chord_network
+      - chord-network
+    deploy:
+      replicas: 10           # Spin up multiple nodes dynamically
 
-  node2:
+  test-client:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-    ports:
-      - "8082:8080"
-    environment:  
-      - NODE_NAME=node2
-      - NODE_PORT=8082
+      dockerfile: docker/Dockerfile.client
+    depends_on:
+      - chord-node
     networks:
-      - chord_network
-
-  node3:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    ports:
-      - "8083:8080"
-    environment:
-      - NODE_NAME=node3
-      - NODE_PORT=8083
-    networks:
-      - chord_network
+      - chord-network
 
 networks:
-  chord_network:
-  # The chord_network uses the bridge network driver, which allows for container communication on the same host
+  chord-network:
     driver: bridge

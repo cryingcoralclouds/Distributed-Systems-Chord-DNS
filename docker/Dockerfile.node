@@ -1,0 +1,19 @@
+# Base image for Go
+FROM golang:1.20
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Install dependencies
+RUN go mod tidy
+
+# Build the application
+RUN go build -o chord_dns .
+
+# Expose dynamic ports
+EXPOSE 8080
+
+# Default command for interactive mode
+CMD ["./chord_dns", "-all"]
