@@ -36,3 +36,11 @@ In another terminal,
 curl http://node0:8001/ping
 curl http://node1:8001/ping
 curl http://node2:8001/ping
+
+4) 
+curl http://node0:8001/successors
+curl http://node1:8001/successors
+curl http://node2:8001/successors
+
+5) "who is responsible for ID 100?"
+curl http://node0:8001/successor/100

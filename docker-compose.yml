@@ -24,6 +24,7 @@ services:
       retries: 3
       start_period: 5s
     restart: on-failure
+    command: ./chord_dns
 
   node1:
     build:
@@ -54,6 +55,7 @@ services:
       retries: 3
       start_period: 5s
     restart: on-failure
+    command: sh -c "sleep 2 && ./chord_dns"  # 2 second delay before starting
 
   node2:
     build:
@@ -71,6 +73,8 @@ services:
     depends_on:
       node0:
         condition: service_healthy
+      node1:
+        condition: service_healthy
     networks:
       chord_network:
         aliases:
@@ -84,6 +88,7 @@ services:
       retries: 3
       start_period: 5s
     restart: on-failure
+    command: sh -c "sleep 4 && ./chord_dns"  # 4 second delay before starting
 
 networks:
   chord_network:

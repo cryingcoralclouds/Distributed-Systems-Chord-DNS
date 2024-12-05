@@ -257,49 +257,67 @@ Allows a node to join the Chord ring.
 Communicates with an introducer node to find its successor and initializes its finger table.
 */
 func (n *Node) Join(introducer *RemoteNode) error {
-	if introducer == nil {
-		log.Printf("[Join] No introducer provided, starting new ring")
-		n.Predecessor = nil
-		n.Successors[0] = &RemoteNode{
-			ID:      n.ID,
-			Address: n.Address,
-			Client:  n.Client,
-		}
-		return n.InitFingerTable(nil)
-	}
+    if introducer == nil {
+        log.Printf("[Join] No introducer provided, starting new ring")
+        n.Predecessor = nil
+        n.Successors[0] = &RemoteNode{
+            ID:      n.ID,
+            Address: n.Address,
+            Client:  n.Client,
+        }
+        return n.InitFingerTable(nil)
+    }
 
-	ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-	defer cancel()
+    ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
+    defer cancel()
 
-	// Find our successor through the introducer
-	successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
-	if err != nil {
-		return fmt.Errorf("failed to find successor: %w", err)
-	}
+    // Find our successor through the introducer
+    successor, err := introducer.Client.FindSuccessor(ctx, n.ID)
+    if err != nil {
+        return fmt.Errorf("failed to find successor: %w", err)
+    }
 
-	// Clear our predecessor - it will be set through stabilization
-	n.Predecessor = nil
+    // Clear our predecessor - it will be set through stabilization
+    n.Predecessor = nil
 
-	// If the successor is the introducer and we're smaller, we should be its predecessor
-	if successor.ID.Cmp(introducer.ID) == 0 && n.ID.Cmp(introducer.ID) < 0 {
-		log.Printf("[Join] We should be the predecessor of the introducer")
-	}
+    // Set the successor
+    n.Successors[0] = successor
 
-	// Set the successor
-	n.Successors[0] = successor
+    // Get the current predecessor of our successor
+    predOfSuccessor, err := successor.Client.GetPredecessor(ctx)
+    if err != nil {
+        log.Printf("[Join] Error getting predecessor of successor: %v", err)
+    }
 
-	// Immediately notify our successor
-	self := &RemoteNode{
-		ID:      n.ID,
-		Address: n.Address,
-		Client:  n.Client,
-	}
+    if predOfSuccessor == nil {
+        // If there's no predecessor, we can be the predecessor
+        log.Printf("[Join] No predecessor found, we can be the predecessor")
+    } else {
+        // If there is a predecessor, check if we should be between them
+        if Between(n.ID, predOfSuccessor.ID, successor.ID, false) {
+            log.Printf("[Join] We should be between predecessor %s and successor %s", 
+                predOfSuccessor.ID, successor.ID)
+        }
+    }
 
-	if err := n.Successors[0].Client.Notify(ctx, self); err != nil {
-		log.Printf("[Join] Failed to notify successor during join: %v", err)
-	}
+    // Immediately notify our successor
+    self := &RemoteNode{
+        ID:      n.ID,
+        Address: n.Address,
+        Client:  n.Client,
+    }
 
-	return n.InitFingerTable(introducer)
+    // Add backoff for notification to avoid race conditions
+    for i := 0; i < 3; i++ {
+        err := n.Successors[0].Client.Notify(ctx, self)
+        if err == nil {
+            break
+        }
+        log.Printf("[Join] Notify attempt %d failed: %v", i+1, err)
+        time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+    }
+
+    return n.InitFingerTable(introducer)
 }
 
 /*
