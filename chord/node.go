@@ -277,6 +277,42 @@ func (n *Node) Join(introducer *RemoteNode) error {
 		return fmt.Errorf("failed to find successor: %w", err)
 	}
 
+	// Get successor's predecessor to determine key range
+    predecessorOfSuccessor, err := successor.Client.GetPredecessor(ctx)
+    if err != nil {
+        return fmt.Errorf("failed to get successor's predecessor: %w", err)
+    }
+
+	// Calculate start hash (predecessor of successor's hash)
+	var startHash *big.Int
+	if predecessorOfSuccessor == nil {
+		// If successor has no predecessor, use successor's hash
+		startHash = successor.ID
+	} else {
+		startHash = predecessorOfSuccessor.ID
+	}
+
+	// Request key transfer for range (predecessor(successor)_hash, new_node_hash]
+	keys, err := successor.Client.TransferKeys(ctx, startHash, n.ID)
+	if err != nil {
+		log.Printf("[Join] Warning: failed to transfer keys: %v", err)
+	} else {
+		// Store transferred keys
+		for key, value := range keys {
+			n.DHT[key] = KeyMetadata{
+				Value:     value,
+				Version:   time.Now().UnixNano(),
+				IsPrimary: true,
+				PrimaryNode: &RemoteNode{
+					ID:      n.ID,
+					Address: n.Address,
+					Client:  n.Client,
+				},
+			}
+		}
+		log.Printf("[Join] Successfully transferred %d keys", len(keys))
+	}
+
 	// Clear our predecessor - it will be set through stabilization
 	n.Predecessor = nil
 
@@ -343,11 +379,28 @@ func (n *Node) Leave() error {
 func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
     keys := make(map[string][]byte)
     for key, metadata := range n.DHT {
-        hash := HashKey(key)
-        if Between(hash, start, end, true) {
+        // Convert the key string (which is already a hash) directly to big.Int
+        hash := new(big.Int)
+        hash.SetString(key, 10)  // Parse the key as base 10 number		log.Printf("KEY AND HASH: %s, %d", key, hash)
+        if metadata.IsPrimary && Between(hash, start, end, true) {
             keys[key] = metadata.Value
+            
+            // Update our copy to non-primary
+            n.DHT[key] = KeyMetadata{
+                Value:       metadata.Value,
+                Version:     metadata.Version,
+                IsPrimary:  false,
+                PrimaryNode: &RemoteNode{
+                    ID:      end, // The new node's ID
+                    Address: "", // Will be updated through stabilization
+                    Client:  nil,
+                },
+            }
         }
-    }
+		log.Printf("[Between] Checking if %s is between %s and %s (inclusive: %v)",
+			hash.String(), start.String(), end.String(), true)
+		log.Printf("TRUE OR NOT: %t", Between(hash, start, end, true))
+	}
     return keys, nil
 }
 

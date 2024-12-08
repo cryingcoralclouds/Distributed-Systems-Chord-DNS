@@ -37,6 +37,7 @@ func (s *HTTPNodeServer) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("/store/", s.handleStoreKey)
 	mux.HandleFunc("/key/", s.handleGetKey)
     mux.HandleFunc("/store-replica/", s.handleStoreReplica)
+    mux.HandleFunc("/transfer-keys", s.handleTransferKeys)
 
 	return mux
 }
@@ -329,4 +330,55 @@ func (s *HTTPNodeServer) handleStoreReplica(w http.ResponseWriter, r *http.Reque
     metadata.IsPrimary = false
     s.node.DHT[key] = metadata
     w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPNodeServer) handleTransferKeys(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    // Decode request body
+    var req struct {
+        Start string `json:"start"`
+        End   string `json:"end"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    // Convert string hashes to big.Int
+    start := new(big.Int)
+    end := new(big.Int)
+    if _, ok := start.SetString(req.Start, 10); !ok {
+        http.Error(w, "Invalid start hash", http.StatusBadRequest)
+        return
+    }
+    if _, ok := end.SetString(req.End, 10); !ok {
+        http.Error(w, "Invalid end hash", http.StatusBadRequest)
+        return
+    }
+
+    // Get keys in range
+    keys, err := s.node.TransferKeys(start, end)
+    if err != nil {
+        http.Error(w, "Failed to transfer keys", http.StatusInternalServerError)
+        return
+    }
+
+    // Prepare response
+    response := struct {
+        Keys map[string][]byte `json:"keys"`
+    }{
+        Keys: keys,
+    }
+
+    // Send response
+    w.Header().Set("Content-Type", "application/json")
+    if err := json.NewEncoder(w).Encode(response); err != nil {
+        log.Printf("Error encoding response: %v", err)
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
 }

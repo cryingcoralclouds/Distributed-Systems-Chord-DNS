@@ -253,5 +253,46 @@ func (c *HTTPNodeClient) DeleteKey(ctx context.Context, key string, metadata Key
 }
 
 func (c *HTTPNodeClient) TransferKeys(ctx context.Context, start, end *big.Int) (map[string][]byte, error) {
-    return nil, fmt.Errorf("not implemented")
+    // Create request body with start and end hash ranges
+    reqBody := struct {
+        Start string `json:"start"`
+        End   string `json:"end"`
+    }{
+        Start: start.String(),
+        End:   end.String(),
+    }
+
+    data, err := json.Marshal(reqBody)
+    if err != nil {
+        return nil, fmt.Errorf("failed to marshal request: %w", err)
+    }
+
+    // Create POST request to /transfer-keys endpoint
+    req, err := http.NewRequestWithContext(ctx, "POST", 
+        fmt.Sprintf("%s/transfer-keys", c.baseURL), 
+        bytes.NewBuffer(data))
+    if err != nil {
+        return nil, fmt.Errorf("failed to create request: %w", err)
+    }
+    req.Header.Set("Content-Type", "application/json")
+
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+    }
+
+    // Decode response which contains key-value pairs
+    var result struct {
+        Keys map[string][]byte `json:"keys"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, fmt.Errorf("failed to decode response: %w", err)
+    }
+
+    return result.Keys, nil
 }

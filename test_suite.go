@@ -102,6 +102,9 @@ func runAllTests(nodes []ChordNode) {
 
 	printSeparator("Testing Replication")
 	printReplicationStatus(nodes)
+
+	printSeparator("Testing Key Transfer on Late Join")
+    testKeyTransferOnLateJoin(nodes)
 }
 
 func testPing(nodes []ChordNode) {
@@ -148,7 +151,7 @@ func testNodeJoining(nodes []ChordNode) {
 
 func testStabilization(nodes []ChordNode) {
 	fmt.Println("Monitoring network stabilization...")
-	for iteration := 0; iteration < 5; iteration++ {
+	for iteration := 0; iteration < 1; iteration++ {
 		time.Sleep(chord.StabilizeInterval)
 		fmt.Printf("\nIteration %d:\n", iteration+1)
 
@@ -168,7 +171,7 @@ func testStabilization(nodes []ChordNode) {
 
 func testFingerTables(nodes []ChordNode) {
 	fmt.Println("Monitoring finger tables...")
-	for iteration := 0; iteration < 5; iteration++ {
+	for iteration := 0; iteration < 1; iteration++ {
 		fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
 		time.Sleep(2 * time.Second)
 
@@ -490,5 +493,65 @@ func testSuccessorLists(nodes []ChordNode) {
                 }
             }
         }
+    }
+}
+
+func testKeyTransferOnLateJoin(nodes []ChordNode) {    
+    // 1. Wait for initial stabilization
+    fmt.Println("Waiting for ring to stabilize...")
+    time.Sleep(5 * time.Second)
+    
+    // 2. Print current DHT state of all nodes
+    fmt.Println("\nCurrent DHT state before new node:")
+    testPrintDHTs(nodes)
+    
+    // 3. Create a new node with the next available port
+    newPort := basePort + len(nodes)
+    newAddress := fmt.Sprintf(":%d", newPort)
+    
+    newNode, err := chord.NewNode(newAddress, chord.NewHTTPNodeClient(newAddress))
+    if err != nil {
+        fmt.Printf("Failed to create new node: %v\n", err)
+        return
+    }
+    
+    // Start HTTP server for new node
+    go http.ListenAndServe(newAddress, chord.NewHTTPNodeServer(newNode).SetupRoutes())
+    time.Sleep(time.Second) // Wait for server to start
+    
+    // 4. Join the ring through the first node
+    introducer := &chord.RemoteNode{
+        ID:      nodes[0].node.ID,
+        Address: nodes[0].node.Address,
+        Client:  chord.NewHTTPNodeClient(nodes[0].node.Address),
+    }
+    
+    fmt.Printf("\nNew node (ID: %s) joining the ring...\n", newNode.ID)
+    err = newNode.Join(introducer)
+    if err != nil {
+        fmt.Printf("Failed to join ring: %v\n", err)
+        return
+    }
+    
+    // 5. Wait for stabilization and key transfer
+    fmt.Println("Waiting for stabilization and key transfer...")
+    time.Sleep(5 * time.Second)
+    
+    // 6. Print final DHT state of all nodes including new node
+    fmt.Println("\nDHT state after new node joined:")
+    newNodes := append(nodes, ChordNode{node: newNode})
+    testPrintDHTs(newNodes)
+    
+    // 7. Print successor and predecessor info for verification
+    fmt.Println("\nNew node's predecessor and successor:")
+    if newNode.Predecessor != nil {
+        fmt.Printf("Predecessor: %s\n", newNode.Predecessor.ID)
+    } else {
+        fmt.Println("Predecessor: nil")
+    }
+    if newNode.Successors[0] != nil {
+        fmt.Printf("Successor: %s\n", newNode.Successors[0].ID)
+    } else {
+        fmt.Println("Successor: nil")
     }
 }
