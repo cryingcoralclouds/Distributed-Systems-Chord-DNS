@@ -38,6 +38,7 @@ func (s *HTTPNodeServer) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("/key/", s.handleGetKey)
     mux.HandleFunc("/store-replica/", s.handleStoreReplica)
     mux.HandleFunc("/transfer-keys", s.handleTransferKeys)
+    mux.HandleFunc("/delete/", s.handleDeleteKey)
 
 	return mux
 }
@@ -329,6 +330,56 @@ func (s *HTTPNodeServer) handleStoreReplica(w http.ResponseWriter, r *http.Reque
     // Ensure we're storing as replica
     metadata.IsPrimary = false
     s.node.DHT[key] = metadata
+    w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPNodeServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {  // Using POST since we're sending metadata in body
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    key := r.URL.Path[len("/delete/"):]
+    if key == "" {
+        http.Error(w, "Key not provided", http.StatusBadRequest)
+        return
+    }
+
+    var metadata KeyMetadata
+    if err := json.NewDecoder(r.Body).Decode(&metadata); err != nil {
+        http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+        return
+    }
+
+    hash := new(big.Int)
+    hash.SetString(key, 10)
+    responsible := s.node.FindResponsibleNode(hash)
+
+    if responsible.ID.Cmp(s.node.ID) == 0 {
+        // We are responsible, delete locally and from replicas
+        delete(s.node.DHT, key)
+        
+        // Delete from replicas
+        ctx := r.Context()
+        for _, replica := range s.node.ReplicationStatus[key] {
+            if err := replica.Client.DeleteKey(ctx, key, metadata); err != nil {
+                log.Printf("[handleDeleteKey] Failed to delete from replica %s: %v", 
+                    replica.ID, err)
+            }
+        }
+        
+        delete(s.node.ReplicationStatus, key)
+        w.WriteHeader(http.StatusOK)
+        return
+    }
+
+    // Forward to responsible node
+    ctx := r.Context()
+    if err := responsible.Client.DeleteKey(ctx, key, metadata); err != nil {
+        http.Error(w, "Failed to forward delete request", http.StatusInternalServerError)
+        return
+    }
+
     w.WriteHeader(http.StatusOK)
 }
 

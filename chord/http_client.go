@@ -249,7 +249,30 @@ func (c *HTTPNodeClient) StoreReplica(ctx context.Context, key string, metadata 
 
 // Stub implementations for other required NodeClient interface methods
 func (c *HTTPNodeClient) DeleteKey(ctx context.Context, key string, metadata KeyMetadata) error {
-    return fmt.Errorf("not implemented")
+    data, err := json.Marshal(metadata)
+    if err != nil {
+        return fmt.Errorf("failed to marshal metadata: %w", err)
+    }
+
+    req, err := http.NewRequestWithContext(ctx, "DELETE", 
+        fmt.Sprintf("%s/key/%s", c.baseURL, key), 
+        bytes.NewBuffer(data))
+    if err != nil {
+        return fmt.Errorf("failed to create request: %w", err)
+    }
+    req.Header.Set("Content-Type", "application/json")
+
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to send request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+    }
+
+    return nil
 }
 
 func (c *HTTPNodeClient) TransferKeys(ctx context.Context, start, end *big.Int) (map[string][]byte, error) {
