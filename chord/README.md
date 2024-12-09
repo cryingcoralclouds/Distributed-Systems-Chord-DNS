@@ -61,7 +61,7 @@ To run the test suite, you can use the following commands:
   ```
 ### Testing Interactive DNS Operations
 
-The interactive DNS test (interactiveDNSTest) simulates the experience of entering DNS records (domain-to-IP mappings) and retrieving them interactively. This test demonstrates how users can dynamically store and query DNS records within the distributed Chord network.
+The interactive DNS test (interactiveDNS) simulates the experience of entering DNS records (domain-to-IP mappings) and retrieving them interactively. This test demonstrates how users can dynamically store and query DNS records within the distributed Chord network.
 
 To use the interactive DNS test, follow these steps:
 
@@ -97,14 +97,14 @@ Get Operation: Retrieves the IP address for a domain.
 - **Stabilization Test**: Ensures that nodes update their successors and predecessors correctly over time.
 - **Put and Get Operations Test**: Simulates storing and retrieving DNS records, demonstrating how users would input domain names and their corresponding IP addresses.
 - **DHT Test**: Prints the distributed hash tables for each node.
-- **interactiveDNSTest**: Simulate Client Interaction for DNS lookups
+- **interactiveDNS**: Simulate Client Interaction for DNS lookups
 
 ## Node Joining Process
 When a node starts, it initializes itself and attempts to join the Chord ring. The first node creates a new ring, while subsequent nodes join through an introducer node. Each node is assigned a unique address based on the port it runs on, allowing it to act as both a server and a client for handling HTTP requests.
 
 ## DNS Resolution
 The `testPutAndGet` function simulates how users would input domain names and their corresponding IP addresses. The DNS queries are resolved using the Chord lookup mechanism, which finds the responsible node for a given domain.
-The `interactiveDNSTest` function interacts with the client who will store these key-value pairs in the Chord ring, allowing for efficient retrieval. The DNS queries are resolved using the Chord lookup mechanism, which finds the responsible node for a given domain.
+The `interactiveDNS` function interacts with the client who will store these key-value pairs in the Chord ring, allowing for efficient retrieval. The DNS queries are resolved using the Chord lookup mechanism, which finds the responsible node for a given domain.
 
 ## Future Work
 Currently, the DNS application (`dns_app`) is not interacting with the Chord ring properly. Future enhancements will focus on:

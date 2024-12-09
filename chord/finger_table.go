@@ -184,31 +184,17 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
 // }
 
 func (n *Node) startFixFingers() {
-	ticker := time.NewTicker(FixFingersInterval)
-	defer ticker.Stop()
+	// Choose a random finger index to update
+	currentFinger := rand.Intn(M)
 
-	for {
-		select {
-		case <-n.ctx.Done():
-			return
-		case <-ticker.C:
-			if !n.IsAlive {
-				continue
-			}
+	// Fix the randomly selected finger
+	start := calculateFingerStart(n.ID, currentFinger)
+	successor := n.FindResponsibleNode(start)
 
-			// Choose a random finger index to update
-			currentFinger := rand.Intn(M)
-
-			// Fix the randomly selected finger
-			start := calculateFingerStart(n.ID, currentFinger)
-			successor := n.FindResponsibleNode(start)
-
-			if successor != nil {
-				if n.FingerTable[currentFinger] == nil ||
-					successor.ID.Cmp(n.FingerTable[currentFinger].ID) != 0 {
-					n.FingerTable[currentFinger] = successor
-				}
-			}
+	if successor != nil {
+		if n.FingerTable[currentFinger] == nil ||
+			successor.ID.Cmp(n.FingerTable[currentFinger].ID) != 0 {
+			n.FingerTable[currentFinger] = successor
 		}
 	}
 }

@@ -71,6 +71,6 @@ func CompareNodes(n1, n2 *big.Int) string {
 	return "equal to"
 }
 
-func randomInt(max int) int {
+/* func randomInt(max int) int {
 	return rand.Intn(max)
-}
+} */
