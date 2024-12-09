@@ -19,6 +19,10 @@ func runTestSuite(nodes []ChordNode, config *TestConfig) {
 		!config.TestStabilize {
 		printSeparator("Interactive DNS Resolution")
 		testNodeJoining(nodes)
+
+		// Allow time for initial setup
+		time.Sleep(2 * time.Second)
+
 		interactiveDNS(nodes)
 		return
 	}
@@ -46,16 +50,33 @@ func runTestSuite(nodes []ChordNode, config *TestConfig) {
 
 	if config.TestOperations {
 		printSeparator("Testing Put and Get Operations")
+		testNodeJoining(nodes)
+
+		// Allow time for initial setup
+		time.Sleep(2 * time.Second)
+
 		testPutAndGet(nodes)
 	}
 
 	if config.TestDHT {
 		printSeparator("Printing DHTs for Each Node")
+		testNodeJoining(nodes)
+
+		// Allow time for initial setup
+		time.Sleep(2 * time.Second)
+
+		testPutAndGet(nodes)
 		testPrintDHTs(nodes)
 	}
 
 	if config.TestStabilize {
 		printSeparator("Testing Stabilization")
+		testNodeJoining(nodes)
+
+		// Allow time for initial setup
+		time.Sleep(2 * time.Second)
+
+		testPutAndGet(nodes)
 		testStabilization(nodes)
 	}
 }
@@ -68,7 +89,7 @@ func runAllTests(nodes []ChordNode) {
 	testNodeJoining(nodes)
 
 	// Allow time for stabilization and finger table setup
-	time.Sleep(5 * time.Second)
+	time.Sleep(8 * time.Second)
 
 	printSeparator("Testing Put and Get Operations")
 	testPutAndGet(nodes)
@@ -294,7 +315,6 @@ func testStabilization(nodes []ChordNode) {
 }
 
 func interactiveDNS(nodes []ChordNode) {
-	fmt.Println("=== Interactive DNS Resolution Test ===")
 	fmt.Println("Commands:")
 	fmt.Println("1. put <domain> <ip>  - Store a new DNS record")
 	fmt.Println("2. get <domain>       - Lookup a domain's IP")
