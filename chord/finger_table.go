@@ -153,36 +153,6 @@ func calculateFingerStart(nodeID *big.Int, i int) *big.Int {
 	return new(big.Int).Mod(sum, RingSize)
 }
 
-// Keeping this just in case. Currently we are fixing finger table sequentially, but
-// the real Chord chooses random finger table entry to update,
-// which takes 40 iterations to achieve the perfect finger table for us.
-// // fixFingers periodically refreshes finger table entries
-// func (n *Node) fixFingers() {
-//     if !n.IsAlive {
-//         return
-//     }
-
-// // Fix all fingers sequentially in one go
-// for i := 0; i < M; i++ {
-//     start := calculateFingerStart(n.ID, i)
-//     successor := n.FindResponsibleNode(start)
-
-//     if successor != nil && (n.FingerTable[i] == nil ||
-//        successor.ID.Cmp(n.FingerTable[i].ID) != 0) {
-//         n.FingerTable[i] = successor
-//     }
-// }
-
-//     // Pick a random finger to fix
-//     i := rand.Intn(M)
-//     start := calculateFingerStart(n.ID, i)
-
-//     successor := n.FindResponsibleNode(start)
-//     if successor != nil && successor.ID.Cmp(n.FingerTable[i].ID) != 0 {
-//         n.FingerTable[i] = successor
-//     }
-// }
-
 func (n *Node) startFixFingers() {
 	// Choose a random finger index to update
 	currentFinger := rand.Intn(M)

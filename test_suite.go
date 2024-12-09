@@ -58,21 +58,6 @@ func runTestSuite(nodes []ChordNode, config *TestConfig) {
 		printSeparator("Testing Stabilization")
 		testStabilization(nodes)
 	}
-
-	/* if config.TestFingers {
-		printSeparator("Testing Finger Tables")
-		testFingerTables(nodes)
-	} */
-
-	/* if config.TestReplication {
-		printSeparator("Testing Replication")
-		printReplicationStatus(nodes)
-	} */
-
-	/* if config.TestSuccessors {
-		printSeparator("Testing Successor Lists")
-		testSuccessorLists(nodes)
-	} */
 }
 
 func runAllTests(nodes []ChordNode) {
@@ -93,15 +78,6 @@ func runAllTests(nodes []ChordNode) {
 
 	printSeparator("Testing Stabilization")
 	testStabilization(nodes)
-
-	/* printSeparator("Testing Finger Tables")
-	testFingerTables(nodes) */
-
-	/* printSeparator("Testing Successor Lists")
-	testSuccessorLists(nodes) */
-
-	/* printSeparator("Testing Replication")
-	printReplicationStatus(nodes) */
 }
 
 func testPing(nodes []ChordNode) {
@@ -498,45 +474,3 @@ func printReplicationStatus(nodes []ChordNode) {
 		fmt.Println(strings.Repeat("-", 50))
 	}
 }
-
-/* func testFingerTables(nodes []ChordNode) {
-	fmt.Println("Monitoring finger tables...")
-	for iteration := 0; iteration < 5; iteration++ {
-		fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
-		time.Sleep(2 * time.Second)
-
-		for i, node := range nodes {
-			fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID)
-			for j := 0; j < chord.M; j++ {
-				entry := node.node.FingerTable[j]
-				if entry != nil {
-					fmt.Printf("  Finger[%d]: %s\n", j, entry.ID.String())
-				} else {
-					fmt.Printf("  Finger[%d]: nil\n", j)
-				}
-			}
-		}
-	}
-} */
-
-/* func testSuccessorLists(nodes []ChordNode) {
-	fmt.Println("Monitoring successor lists...")
-	for iteration := 0; iteration < 1; iteration++ { // Putting one iteration for now
-		fmt.Printf("\n=== Iteration %d ===\n", iteration+1)
-		time.Sleep(2 * time.Second)
-
-		for i, node := range nodes {
-			fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID)
-			fmt.Printf("Successor list (size: %d):\n", len(node.node.Successors))
-
-			for j, successor := range node.node.Successors {
-				if successor != nil {
-					fmt.Printf("  [%d] ID: %s, Address: %s\n",
-						j, successor.ID, successor.Address)
-				} else {
-					fmt.Printf("  [%d] nil\n", j)
-				}
-			}
-		}
-	}
-} */

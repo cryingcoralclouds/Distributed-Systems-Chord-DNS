@@ -34,20 +34,12 @@ type TestConfig struct {
 	TestDHT         bool
 	TestStabilize   bool
 	TestInteractive bool
-	// TestFingers     bool
-	// TestReplication bool
-	// TestSuccessors  bool
 }
 
 func main() {
 	// Define and parse flags
 	config := defineFlags()
 	flag.Parse()
-
-	/* // Process DNS data
-	inputFile := "dns/dns_data.json"
-	outputFile := "dns/hashed_dns_data.json"
-	processDNS(inputFile, outputFile) */
 
 	// Initialize Chord nodes
 	nodes := initializeNodes()
@@ -73,19 +65,9 @@ func defineFlags() *TestConfig {
 	flag.BoolVar(&config.TestDHT, "dht", false, "Print DHTs for Each node")
 	flag.BoolVar(&config.TestStabilize, "stabilize", false, "Test Stabilization")
 	flag.BoolVar(&config.TestInteractive, "interactive", false, "Interactive DNS Resolution")
-	// flag.BoolVar(&config.TestFingers, "fingers", false, "Test Finger Tables")
-	// flag.BoolVar(&config.TestReplication, "replication", false, "Test eplication")
 
 	return config
 }
-
-/* func processDNS(inputFile, outputFile string) {
-	err := dns.ProcessDNSData(inputFile, outputFile)
-	if err != nil {
-		log.Fatalf("Failed to process DNS data: %v", err)
-	}
-	fmt.Println("Hashed DNS data written to", outputFile)
-} */
 
 func initializeNodes() []ChordNode {
 	nodes := make([]ChordNode, numNodes)

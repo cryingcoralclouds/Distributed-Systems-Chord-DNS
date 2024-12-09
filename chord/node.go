@@ -38,11 +38,6 @@ type Node struct {
 	Client NodeClient
 }
 
-/* func init() {
-	// Seed the random number generator once at the package level
-	rand.Seed(time.Now().UnixNano())
-} */
-
 func NewNode(addr string, client NodeClient) (*Node, error) {
 	if addr == "" {
 		return nil, errors.New("network address cannot be empty")
@@ -126,50 +121,6 @@ func (n *Node) Put(hashedKey string, value []byte) error {
 }
 
 /*
-replicateKey method:
-Attempts to store a key-value pair in the successor nodes.
-Ignores the primary node and counts how many replicas were successfully stored.
-Updates the ReplicationStatus map with the successful replicas.
-*/
-/* func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error {
-	if len(n.Successors) < ReplicationFactor {
-		return fmt.Errorf("not enough successors for replication: need %d, have %d", ReplicationFactor, len(n.Successors))
-	}
-
-	replicaCount := 0
-	n.ReplicationStatus[key] = []*RemoteNode{} // Initialize or reset replication status for key
-
-	// Create metadata for replicas
-	metadata := KeyMetadata{
-		Value:       value,
-		Version:     time.Now().UnixNano(),
-		IsPrimary:   false,
-		PrimaryNode: primary,
-	}
-
-	for i := 0; i < len(n.Successors) && replicaCount < ReplicationFactor; i++ {
-		if n.Successors[i] == nil || n.Successors[i].ID.Cmp(primary.ID) == 0 {
-			continue
-		}
-
-		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-		err := n.Successors[i].Client.StoreReplica(ctx, key, metadata)
-		cancel()
-
-		if err == nil {
-			n.ReplicationStatus[key] = append(n.ReplicationStatus[key], n.Successors[i])
-			replicaCount++
-		}
-	}
-
-	if replicaCount < ReplicationFactor {
-		return fmt.Errorf("failed to achieve desired replication factor: got %d, want %d", replicaCount, ReplicationFactor)
-	}
-
-	return nil
-} */
-
-/*
 Get:
 Use the Chord ring structure to find the successor node responsible for that key hash.
 Use "between" checks to confirm if the node is responsible for the key.
@@ -212,43 +163,6 @@ func (n *Node) Get(hashedKey string) ([]byte, error) {
 	log.Printf("Retrieved record from responsible node: key=%s, value=%s", hashedKey, string(value))
 	return value, nil
 }
-
-/* Save replicateKey for later on
-func (n *Node) replicateKey(primary *RemoteNode, key string, value []byte) error {
-		// To be implemented
-    return nil
-} */
-
-// Attempts to fetch the value from the replicas if the responsible node cannot be contacted.
-/* func (n *Node) getFromReplicas(key string) ([]byte, error) {
-	replicas, exists := n.ReplicationStatus[key]
-	if !exists {
-		return nil, ErrKeyNotFound
-	}
-
-	for _, replica := range replicas {
-		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-		value, _, err := replica.Client.GetKey(ctx, key)
-		cancel()
-
-		if err == nil {
-			return value, nil
-		}
-	}
-
-	// Retry once if no value was found
-	for _, replica := range replicas {
-		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
-		value, _, err := replica.Client.GetKey(ctx, key)
-		cancel()
-
-		if err == nil {
-			return value, nil
-		}
-	}
-
-	return nil, ErrKeyNotFound
-} */
 
 /*
 Join method:
@@ -438,26 +352,6 @@ func (n *Node) startStabilize() {
 	}()
 }
 
-/* func (n *Node) fixFingers() {
-	for i := 1; i < len(n.FingerTable); i++ { // temporarily change from len(n.FingerTable) to 5
-		// Find the start of the ith finger
-		start := new(big.Int).Add(n.ID, new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(i-1)), nil))
-		successor, err := n.Client.FindSuccessor(n.ctx, start)
-
-		log.Printf("n %d", n.ID)
-		log.Printf("start: %d", start)
-
-		if err != nil {
-			log.Printf("Error fixing finger %d: %v", i, err)
-			continue
-		}
-
-		if successor != nil {
-			n.FingerTable[i] = successor
-		}
-	}
-} */
-
 // ReplicatedPut handles putting a value with replication
 func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
 	if !n.IsAlive {
@@ -583,17 +477,6 @@ func (n *Node) ReplicateToSuccessors(key string, value []byte, version int64) er
 
 // CheckReplication verifies and repairs replication status
 func (n *Node) CheckReplication() {
-	/* 	ticker := time.NewTicker(10 * time.Second)
-	   	defer ticker.Stop()
-
-	   	for {
-	   		select {
-	   		case <-n.ctx.Done():
-	   			return
-	   		case <-ticker.C:
-	   			if !n.IsAlive {
-	   				continue
-	   			} */
 
 	for key, metadata := range n.DHT {
 		if metadata.IsPrimary {
