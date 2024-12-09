@@ -21,16 +21,16 @@ type ChordNode struct {
 
 // TestConfig holds the flag values for different tests
 type TestConfig struct {
-	RunAll         bool
-	TestPing       bool
-	TestJoin       bool
-	TestStabilize  bool
-	TestFingers    bool
-	TestOperations bool
-	TestDHT        bool
+	RunAll          bool
+	TestPing        bool
+	TestJoin        bool
+	TestStabilize   bool
+	TestFingers     bool
+	TestOperations  bool
+	TestDHT         bool
 	TestInteractive bool
 	TestReplication bool
-	TestSuccessors bool
+	TestSuccessors  bool
 }
 
 func main() {
@@ -52,13 +52,15 @@ func main() {
 	// Run test suite with flags
 	runTestSuite(nodes, config)
 
+	runClientInterface(nodes) // Run client interface
+
 	fmt.Println("\nServers running. Press Ctrl+C to exit.")
 	select {}
 }
 
 func defineFlags() *TestConfig {
 	config := &TestConfig{}
-	
+
 	// Define flags
 	flag.BoolVar(&config.RunAll, "all", false, "Run all tests")
 	flag.BoolVar(&config.TestPing, "ping", false, "Test node connectivity")
@@ -69,7 +71,7 @@ func defineFlags() *TestConfig {
 	flag.BoolVar(&config.TestDHT, "dht", false, "Print DHTs for each node")
 	flag.BoolVar(&config.TestInteractive, "interactive", false, "Run interactive DNS resolution test")
 	flag.BoolVar(&config.TestReplication, "replication", false, "Test replication")
-	
+
 	return config
 }
 

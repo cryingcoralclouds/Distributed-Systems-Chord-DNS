@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chord_dns/chord"
 	"fmt"
 	"math/rand"
 	"os"
@@ -15,11 +16,11 @@ import (
 
 // Client configuration
 var (
-	concurrentRequests  = 5 // Can be made configurable
-	timeout             = 3 * time.Second
+	concurrentRequests  = 3 // Can be made configurable
+	timeout             = 10 * time.Second
 	maxRetries          = 3
-	interval            = 10 * time.Second
-	automatedDomainList = []string{"google.com", "netflix.com", "facebook.dev", "random.org"} // Example domains for testing
+	interval            = 5 * time.Second
+	automatedDomainList = []string{"google.com", "netflix.com", "facebook.com", "random.org", "#cdf", "googletagmanager.com"} // Example domains for testing
 )
 
 // check whether the domain name is legal
@@ -53,14 +54,17 @@ func isLegalDomain(domain string) bool {
 }
 
 // resolveDomain handles domain resolution with retries
-func resolveDomain(node *ChordNode, domain string, wg *sync.WaitGroup, results chan<- string, logFile *os.File) {
+func resolveDomain(nodes []ChordNode, domain string, wg *sync.WaitGroup, results chan<- string, logFile *os.File) {
 	defer wg.Done()
 	var elapsed time.Duration
 	var success bool
 	var legal bool
 
+	hashedDomain := chord.HashKey(domain).String()
+
 	for i := 0; i < maxRetries; i++ {
 		// TO DO: question should the time taken to check the validity of the domain be counted in elapsed time?
+		node := nodes[rand.Intn(len(nodes))] // Choose a random node
 		start := time.Now()
 
 		// check for legal domain
@@ -69,11 +73,16 @@ func resolveDomain(node *ChordNode, domain string, wg *sync.WaitGroup, results c
 			break
 		}
 
-		ip, err := node.node.Get(domain)
+		// print node
+		fmt.Println(node)
+
+		ip, err := node.node.Get(hashedDomain)
+		fmt.Println(ip)
+		fmt.Println(err)
 		elapsed = time.Since(start)
 
 		if err == nil {
-			logEntry := fmt.Sprintf("Domain: %s, Resolved IP: %s, Elapsed Time: %v\n", domain, ip, elapsed)
+			logEntry := fmt.Sprintf("Node: %v, Domain: %s, Resolved IP: %s, Elapsed Time: %v\n", node, domain, ip, elapsed)
 			results <- logEntry
 			logFile.WriteString(logEntry)
 			success = true
@@ -110,7 +119,7 @@ func automatedTesting(nodes []ChordNode) {
 	for {
 		var wg sync.WaitGroup
 		results := make(chan string, len(automatedDomainList)*maxRetries)
-		randNode := nodes[rand.Intn(len(nodes))] // Choose a random node
+		// randNode := nodes[rand.Intn(len(nodes))] // Choose a random node
 		// mockNode := &Node{Name: randNode}
 
 		for i, domain := range automatedDomainList {
@@ -118,7 +127,7 @@ func automatedTesting(nodes []ChordNode) {
 				wg.Wait()
 			}
 			wg.Add(1)
-			go resolveDomain(&randNode, domain, &wg, results, logFile)
+			go resolveDomain(nodes, domain, &wg, results, logFile)
 		}
 
 		wg.Wait()
@@ -129,9 +138,10 @@ func automatedTesting(nodes []ChordNode) {
 
 		time.Sleep(interval)
 	}
+
 }
 
-// manualResolution allows manual testing
+// manualResolution allows manual testing and returns to main menu after exit
 func manualResolution(nodes []ChordNode) {
 	logFile, err := os.OpenFile("./results/manual.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -141,20 +151,20 @@ func manualResolution(nodes []ChordNode) {
 	defer logFile.Close()
 
 	var domain string
-	fmt.Println("Enter domain names to resolve (type 'exit' to quit):")
+	fmt.Println("Enter domain names to resolve (type 'exit' to return to main menu):")
 	for {
 		fmt.Print("Domain: ")
 		fmt.Scanln(&domain)
 		if domain == "exit" {
-			break
+			runClientInterface(nodes) // Return to main menu
+			return
 		}
 
-		randNode := nodes[rand.Intn(len(nodes))] // Choose a random node
 		var wg sync.WaitGroup
 		results := make(chan string, 1)
 
 		wg.Add(1)
-		go resolveDomain(&randNode, domain, &wg, results, logFile)
+		go resolveDomain(nodes, domain, &wg, results, logFile)
 
 		wg.Wait()
 		close(results)
@@ -166,20 +176,28 @@ func manualResolution(nodes []ChordNode) {
 
 func runClientInterface(nodes []ChordNode) {
 	rand.Seed(time.Now().UnixNano())
-	fmt.Println("Choose an option:")
-	fmt.Println("1. Manual Domain Name Resolution")
-	fmt.Println("2. Automated Testing")
+	for {
+		fmt.Println("\nMain Menu:")
+		fmt.Println("1. Manual Domain Name Resolution")
+		fmt.Println("2. Automated Testing")
+		fmt.Println("3. Exit Program")
 
-	var choice int
-	fmt.Print("Enter your choice: ")
-	fmt.Scanln(&choice)
+		var choice int
+		fmt.Print("Enter your choice: ")
+		fmt.Scanln(&choice)
 
-	switch choice {
-	case 1:
-		manualResolution(nodes)
-	case 2:
-		automatedTesting(nodes)
-	default:
-		fmt.Println("Invalid choice.")
+		switch choice {
+		case 1:
+			manualResolution(nodes)
+			return // Return after manual resolution completes
+		case 2:
+			automatedTesting(nodes)
+			return // Return after automated testing completes
+		case 3:
+			fmt.Println("Exiting program.")
+			os.Exit(0)
+		default:
+			fmt.Println("Invalid choice. Please try again.")
+		}
 	}
 }

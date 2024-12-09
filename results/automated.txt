@@ -1,0 +1,61 @@
+Node: {0x140000d4460 0x140000a80a0}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 4.431542ms
+Node: {0x140000d4460 0x140000a80a0}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 6.744417ms
+Node: {0x140000d40e0 0x140000a8080}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 6.87475ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Domain: random.org, Attempt: 1, Timeout
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: random.org, Resolution failed after 3 attempts
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Node: {0x140000d40e0 0x140000a8080}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 6.201333ms
+Node: {0x140000d4700 0x140000a80b8}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 7.222792ms
+Node: {0x140000d4380 0x140000a8098}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 8.478333ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Domain: random.org, Attempt: 1, Timeout
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Domain: random.org, Resolution failed after 3 attempts
+Node: {0x140000d4700 0x140000a80b8}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 6.886917ms
+Node: {0x140000d4700 0x140000a80b8}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 7.159583ms
+Node: {0x140000d4700 0x140000a80b8}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 8.14825ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Domain: random.org, Attempt: 1, Timeout
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: random.org, Resolution failed after 3 attempts
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Node: {0x140000d4620 0x140000a80b0}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 4.011792ms
+Node: {0x140000d4620 0x140000a80b0}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 4.94375ms
+Node: {0x140000d42a0 0x140000a8090}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 10.288625ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Domain: random.org, Attempt: 1, Timeout
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: random.org, Resolution failed after 3 attempts
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Node: {0x140000d4620 0x140000a80b0}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 7.370667ms
+Node: {0x140000d41c0 0x140000a8088}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 7.65925ms
+Node: {0x140000d4460 0x140000a80a0}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 10.558917ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Domain: random.org, Attempt: 1, Timeout
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
