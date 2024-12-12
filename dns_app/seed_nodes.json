@@ -1,7 +1,0 @@
-{
-    "bootstrap_nodes": [
-        "http://localhost:8001",
-        "http://localhost:8005",
-        "http://localhost:8010"
-    ]
-}

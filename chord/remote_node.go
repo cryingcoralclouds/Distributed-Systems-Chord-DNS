@@ -23,6 +23,11 @@ type NodeClient interface {
 	Ping(ctx context.Context) error
 }
 
+func NewNodeClient(address string) NodeClient {
+    return NewHTTPNodeClient(address) // Pass the address to create the client
+}
+
+
 // RemoteNode represents a reference to a remote node in the Chord ring
 type RemoteNode struct {
     ID      *big.Int    `json:"id"`
@@ -44,26 +49,26 @@ func (n *RemoteNode) MarshalJSON() ([]byte, error) {
 
 // Custom JSON unmarshaling for big.Int
 func (n *RemoteNode) UnmarshalJSON(data []byte) error {
-    type Alias RemoteNode
-    aux := &struct {
-        ID string `json:"id"`
-        *Alias
-    }{
-        Alias: (*Alias)(n),
-    }
-    
-    if err := json.Unmarshal(data, &aux); err != nil {
-        return err
-    }
-    
-    id, ok := new(big.Int).SetString(aux.ID, 10)
-    if !ok {
-        return fmt.Errorf("invalid ID format")
-    }
-    n.ID = id
-    
-    // Create a new client for the remote node
-    n.Client = NewHTTPNodeClient(n.Address)
-    
-    return nil
+	type Alias RemoteNode
+	aux := &struct {
+		ID string `json:"id"`
+		*Alias
+	}{
+		Alias: (*Alias)(n),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	id, ok := new(big.Int).SetString(aux.ID, 10)
+	if !ok {
+		return fmt.Errorf("invalid ID format")
+	}
+	n.ID = id
+
+	// Create a new HTTPNodeClient for the remote node
+	n.Client = NewHTTPNodeClient(n.Address)
+	return nil
 }
+

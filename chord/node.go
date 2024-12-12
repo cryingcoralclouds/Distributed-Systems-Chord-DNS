@@ -44,6 +44,69 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+func (n *Node) Initialize() {
+	// If this is the first node in the ring, set it as its own successor and predecessor
+	self := &RemoteNode{
+		ID:      n.ID,
+		Address: n.Address,
+		Client:  n.Client,
+	}
+
+	// Set the node as its own successor and predecessor
+	n.Successors[0] = self
+	n.Predecessor = nil
+
+	// Start stabilization and finger table updates
+	go n.startStabilize()
+	go n.StartFixFingers()
+
+	log.Printf("Node %s initialized as the first node in the ring. ID: %s", n.Address, n.ID.String())
+}
+
+
+// CreateRing initializes a new Chord ring with this node as the sole member.
+func CreateRing() {
+	address := "0.0.0.0:8080" // Default address for the first node
+
+	// Create a new node
+	selfNode, err := NewNode(address, NewNodeClient(address)) // Pass the address here
+	if err != nil {
+		log.Fatalf("Failed to create node: %v", err)
+	}
+
+	// Initialize the node as the first node in the Chord ring
+	selfNode.Initialize()
+
+	log.Println("Created a new Chord ring.")
+}
+
+
+// JoinRing connects this node to an existing Chord ring via the introducer.
+func JoinRing(introducerAddress string) error {
+    
+	// Specify the node address; adjust as per your configuration
+	address := "0.0.0.0:8080"
+
+	// Create the node
+	selfNode, err := NewNode(address, NewNodeClient(address)) // Pass the address here
+	if err != nil {
+		return fmt.Errorf("failed to create the node: %w", err)
+	}
+
+	// Join the ring by contacting the introducer node
+	introducer := &RemoteNode{
+		Address: introducerAddress,
+		Client:  selfNode.Client,
+	}
+
+	if err := selfNode.Join(introducer); err != nil {
+		return fmt.Errorf("failed to join the ring: %w", err)
+	}
+
+	log.Println("Successfully joined the Chord ring.")
+	return nil
+}
+
 func NewNode(addr string, client NodeClient) (*Node, error) {
 	if addr == "" {
 		return nil, errors.New("network address cannot be empty")
@@ -252,7 +315,7 @@ func (n *Node) getFromReplicas(key string) ([]byte, error) {
 }
 
 /*
-Join method:
+Join method:di
 Allows a node to join the Chord ring.
 Communicates with an introducer node to find its successor and initializes its finger table.
 */

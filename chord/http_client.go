@@ -24,9 +24,11 @@ type HTTPNodeClient struct {
 func NewHTTPNodeClient(address string) NodeClient {
     return &HTTPNodeClient{
         client:  &http.Client{},
-        baseURL: fmt.Sprintf("http://localhost%s", address), // e.g. http://localhost:8001
+        baseURL: fmt.Sprintf("http://%s", address), // Use the full address directly
     }
 }
+
+
 
 // Implement just the essential methods of NodeClient interface for now
 func (c *HTTPNodeClient) Ping(ctx context.Context) error {

@@ -3,27 +3,32 @@ version: '3.8'
 services:
   chord-node:
     build:
-      context: ..
+      context: .. # Context points to the root directory
       dockerfile: docker/Dockerfile.node
     ports:
-      - "${NODE_PORT}:8080"  # Assign dynamic ports
+      - "8080:8080"
+      - "8081:8080"
     environment:
-      BASE_PORT: 8080        # Optional: starting base port
-      NUM_NODES: 1          # Optional: number of nodes
-    command: ["./chord_dns", "-all"] # Override CMD for tests
+      BASE_PORT: 8080
+      IS_INTRODUCER: "${IS_INTRODUCER:-false}"
+      INTRODUCER_ADDRESS: "chord-introducer:8080"
+    deploy:
+      replicas: ${NUM_NODES:-10}
     networks:
       - chord-network
-    deploy:
-      replicas: 10           # Spin up multiple nodes dynamically
 
-  test-client:
+
+  test-suite:
     build:
-      context: ..
+      context: ../ # Context points to the root directory
       dockerfile: docker/Dockerfile.client
     depends_on:
       - chord-node
     networks:
       - chord-network
+    environment:
+      NUM_NODES: "${NUM_NODES:-10}"
+    command: ["./test_suite"]
 
 networks:
   chord-network:

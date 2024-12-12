@@ -1,13 +1,22 @@
-# Base image for Python
-FROM python:3.9
+# Base image for Go
+FROM golang:1.20
 
 WORKDIR /app
 
-# Copy client script
-COPY ./simulate_client.py /app/simulate_client.py
+# Copy the root go.mod and go.sum to resolve dependencies
+COPY go.mod go.sum ./
 
 # Install dependencies
-RUN pip install requests
+RUN go mod tidy
 
-# Run the client script
-CMD ["python3", "simulate_client.py"]
+# Copy the entire project (including test_suite and chord folders)
+COPY . .
+
+# Set working directory to test_suite
+WORKDIR /app/test_suite
+
+# Build the test suite binary
+RUN go build -o test_suite .
+
+# Command to run the test suite
+CMD ["./test_suite"]

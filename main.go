@@ -2,92 +2,103 @@ package main
 
 import (
 	"chord_dns/chord"
-	"chord_dns/dns"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"strconv"
 	"time"
 )
 
 const (
-	basePort = 8001
-	numNodes = 10
+	defaultBasePort       = 8080
+	introducerServiceName = "chord-introducer"
+	defaultStabilizeDelay = 5 * time.Second
 )
 
-type ChordNode struct {
-	node   *chord.Node
-	server *chord.HTTPNodeServer
-}
-
-// TestConfig holds the flag values for different tests
-type TestConfig struct {
-	RunAll         bool
-	TestPing       bool
-	TestJoin       bool
-	TestStabilize  bool
-	TestFingers    bool
-	TestOperations bool
-	TestDHT        bool
-	TestInteractive bool
-	TestReplication bool
-	TestSuccessors bool
-}
-
 func main() {
-	// Define and parse flags
-	config := defineFlags()
+	// Define and parse test-related flags
+	isTest := flag.Bool("test", false, "Indicates if the node is for testing")
 	flag.Parse()
 
-	// Process DNS data
-	inputFile := "dns/dns_data.json"
-	outputFile := "dns/hashed_dns_data.json"
-	processDNS(inputFile, outputFile)
+	// Get configuration from environment variables
+	isIntroducer := os.Getenv("IS_INTRODUCER") == "true"
+	basePort := os.Getenv("BASE_PORT")
+	if basePort == "" {
+		basePort = strconv.Itoa(defaultBasePort)
+	}
+	nodeAddress := fmt.Sprintf("0.0.0.0:%s", basePort) // Node listens on 0.0.0.0
+	serviceName := os.Getenv("HOSTNAME")               // Use Docker-assigned hostname
 
-	// Initialize Chord nodes
-	nodes := initializeNodes()
+	// Create the node
+	selfNode, err := chord.NewNode(serviceName+":"+basePort, chord.NewHTTPNodeClient(serviceName+":"+basePort))
+	if err != nil {
+		log.Fatalf("Failed to create node: %v", err)
+	}
 
-	// Wait for servers to start
-	time.Sleep(2 * time.Second)
+	if isIntroducer {
+		// Initialize as the introducer (first node in the ring)
+		selfNode.Initialize()
+		log.Println("Node initialized as the introducer.")
+	} else {
+		// Join the Chord ring through the introducer
+		introducerAddress := fmt.Sprintf("%s:%d", introducerServiceName, defaultBasePort)
 
-	// Run test suite with flags
-	runTestSuite(nodes, config)
+		log.Printf("Waiting for introducer at %s to be ready...", introducerAddress)
+		for {
+			if err := checkIntroducerReady(introducerAddress); err == nil {
+				break
+			}
+			log.Printf("Introducer not ready, retrying in 2 seconds...")
+			time.Sleep(2 * time.Second)
+		}
 
-	fmt.Println("\nServers running. Press Ctrl+C to exit.")
+		// Attempt to join the Chord ring
+		if err := selfNode.Join(&chord.RemoteNode{
+			Address: introducerAddress,
+			Client:  chord.NewHTTPNodeClient(introducerAddress),
+		}); err != nil {
+			log.Fatalf("Failed to join Chord ring: %v", err)
+		}
+		log.Printf("Node %s joined the Chord ring via introducer %s", serviceName, introducerAddress)
+	}
+
+	// Start the HTTP server for this node
+	server := chord.NewHTTPNodeServer(selfNode)
+	go startServer(server, nodeAddress)
+
+	// Wait for stabilization
+	time.Sleep(defaultStabilizeDelay)
+
+	// If the node is for testing, exit after setup
+	if *isTest {
+		log.Println("Node setup completed for testing.")
+		return
+	}
+
+	// Keep the server running
+	log.Printf("Node is up and running at %s", nodeAddress)
 	select {}
 }
 
-func defineFlags() *TestConfig {
-	config := &TestConfig{}
-	
-	// Define flags
-	flag.BoolVar(&config.RunAll, "all", false, "Run all tests")
-	flag.BoolVar(&config.TestPing, "ping", false, "Test node connectivity")
-	flag.BoolVar(&config.TestJoin, "join", false, "Test node joining")
-	flag.BoolVar(&config.TestStabilize, "stabilize", false, "Test network stabilization")
-	flag.BoolVar(&config.TestFingers, "fingers", false, "Test finger tables")
-	flag.BoolVar(&config.TestOperations, "ops", false, "Test Put and Get operations")
-	flag.BoolVar(&config.TestDHT, "dht", false, "Print DHTs for each node")
-	flag.BoolVar(&config.TestInteractive, "interactive", false, "Run interactive DNS resolution test")
-	flag.BoolVar(&config.TestReplication, "replication", false, "Test replication")
-	
-	return config
-}
-
-func processDNS(inputFile, outputFile string) {
-	err := dns.ProcessDNSData(inputFile, outputFile)
+func checkIntroducerReady(address string) error {
+	url := fmt.Sprintf("http://%s/ping", address)
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatalf("Failed to process DNS data: %v", err)
+		return fmt.Errorf("introducer not reachable: %v", err)
 	}
-	fmt.Println("Hashed DNS data written to", outputFile)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("introducer returned unexpected status: %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
-func initializeNodes() []ChordNode {
-	nodes := make([]ChordNode, numNodes)
-	for i := 0; i < numNodes; i++ {
-		addr := fmt.Sprintf(":%d", basePort+i)
-		node, server := createNode(addr)
-		nodes[i] = ChordNode{node: node, server: server}
-		startServer(server, addr)
+func startServer(server *chord.HTTPNodeServer, address string) {
+	if err := server.Start(address); err != nil {
+		log.Fatalf("Failed to start server on %s: %v", address, err)
 	}
-	return nodes
 }
