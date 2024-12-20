@@ -10,7 +10,6 @@ go build -o chord_dns
 ```
 
 ## Flags
-flags:
 -numNodes
 -concurrentRequests
 -case=client/base/case1/case2/case3/case4/test
