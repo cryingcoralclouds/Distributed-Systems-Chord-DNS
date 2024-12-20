@@ -1,0 +1,38 @@
+Node: {0x140000d4380 0x140000a8098}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 10.718333ms
+Node: {0x140000d42a0 0x140000a8090}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 14.088792ms
+Node: {0x140000d4460 0x140000a80a0}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 18.53375ms
+Node: {0x140000d47e0 0x140000a80c0}, Domain: random.org, Attempt: 1, Error: intermittent fault: node is asleep
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Node: {0x140000d41c0 0x140000a8088}, Domain: googletagmanager.com, Attempt: 1, Error: failed to retrieve record from responsible node: key not found
+Node: {0x140000d4380 0x140000a8098}, Domain: googletagmanager.com, Attempt: 2, Error: intermittent fault: node is asleep
+Node: {0x140000d40e0 0x140000a8080}, Domain: random.org, Attempt: 2, Error: failed to retrieve record from responsible node: key not found
+Node: {0x140000d4540 0x140000a80a8}, Domain: googletagmanager.com, Attempt: 3, Error: intermittent fault: node is asleep
+Node: {0x140000d4620 0x140000a80b0}, Domain: random.org, Attempt: 3, Error: intermittent fault: node is asleep
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Domain: random.org, Resolution failed after 3 attempts
+Node: {0x140000d40e0 0x140000a8080}, Domain: google.com, Attempt: 1, Error: intermittent fault: node is asleep
+Node: {0x140000d42a0 0x140000a8090}, Domain: reddit.com, Resolved IP: 151.101.193.140, Elapsed Time: 5.347459ms
+Node: {0x140000d40e0 0x140000a8080}, Domain: wikipedia.org, Resolved IP: 208.80.154.224, Elapsed Time: 6.229ms
+Node: {0x140000d4540 0x140000a80a8}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 10.969792ms
+Node: {0x140000d4620 0x140000a80b0}, Domain: amazon.com, Attempt: 1, Error: intermittent fault: node is asleep
+Node: {0x140000d4700 0x140000a80b8}, Domain: youtube.com, Attempt: 1, Error: intermittent fault: node is asleep
+Node: {0x140000d4620 0x140000a80b0}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 9.022625ms
+Node: {0x140000d47e0 0x140000a80c0}, Domain: youtube.com, Attempt: 2, Error: intermittent fault: node is asleep
+Node: {0x140000d4620 0x140000a80b0}, Domain: amazon.com, Resolved IP: 205.251.242.103, Elapsed Time: 5.459417ms
+Node: {0x140000d4380 0x140000a8098}, Domain: youtube.com, Attempt: 3, Error: intermittent fault: node is asleep
+Domain: youtube.com, Resolution failed after 3 attempts
+Node: {0x140000d4620 0x140000a80b0}, Domain: instagram.com, Attempt: 1, Error: intermittent fault: node is asleep
+Node: {0x140000d42a0 0x140000a8090}, Domain: twitter.com, Resolved IP: 199.59.149.230, Elapsed Time: 8.992542ms
+Node: {0x140000d4620 0x140000a80b0}, Domain: linkedin.com, Resolved IP: 108.174.10.10, Elapsed Time: 19.52475ms
+Node: {0x140000d4380 0x140000a8098}, Domain: instagram.com, Attempt: 2, Error: intermittent fault: node is asleep
+Node: {0x140000d4380 0x140000a8098}, Domain: instagram.com, Attempt: 3, Error: intermittent fault: node is asleep
+Domain: instagram.com, Resolution failed after 3 attempts
+Node: {0x140000d47e0 0x140000a80c0}, Domain: yahoo.com, Attempt: 1, Error: intermittent fault: node is asleep
+Node: {0x140000d4460 0x140000a80a0}, Domain: microsoft.com, Attempt: 1, Error: intermittent fault: node is asleep
+Node: {0x140000d47e0 0x140000a80c0}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 18.899375ms
+Node: {0x140000d4620 0x140000a80b0}, Domain: microsoft.com, Attempt: 2, Error: intermittent fault: node is asleep
+Node: {0x140000d4460 0x140000a80a0}, Domain: yahoo.com, Resolved IP: 98.137.149.56, Elapsed Time: 11.02925ms
+Node: {0x140000d4620 0x140000a80b0}, Domain: microsoft.com, Attempt: 3, Error: intermittent fault: node is asleep
+Domain: microsoft.com, Resolution failed after 3 attempts
+Node: {0x140000d42a0 0x140000a8090}, Domain: apple.com, Resolved IP: 17.253.144.10, Elapsed Time: 966.042µs

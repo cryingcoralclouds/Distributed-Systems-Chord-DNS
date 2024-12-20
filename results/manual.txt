@@ -1,0 +1,2 @@
+Node: {0x14000150380 0x14000112098}, Domain: yahoo.com, Resolved IP: 98.137.149.56, Elapsed Time: 3.28125ms
+Node: {0x140001507e0 0x140001120c0}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 3.896292ms

@@ -1,0 +1,78 @@
+Node: {0x140001281c0 0x14000056090}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 16.406417ms
+Node: {0x14000128460 0x140000560a8}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 21.683875ms
+Node: {0x14000128460 0x140000560a8}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 24.34975ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Domain: random.org, Attempt: 1, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Domain: random.org, Resolution failed after 3 attempts
+Node: {0x140001282a0 0x14000056098}, Domain: wikipedia.org, Resolved IP: 208.80.154.224, Elapsed Time: 8.182ms
+Node: {0x140001281c0 0x14000056090}, Domain: reddit.com, Resolved IP: 151.101.193.140, Elapsed Time: 9.889875ms
+Node: {0x140001287e0 0x140000560c8}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 16.03075ms
+Node: {0x14000128540 0x140000560b0}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 12.011958ms
+Node: {0x14000128380 0x140000560a0}, Domain: youtube.com, Resolved IP: 74.125.65.91, Elapsed Time: 14.324541ms
+Node: {0x140001282a0 0x14000056098}, Domain: amazon.com, Resolved IP: 205.251.242.103, Elapsed Time: 16.332042ms
+Node: {0x140001281c0 0x14000056090}, Domain: twitter.com, Resolved IP: 199.59.149.230, Elapsed Time: 6.56975ms
+Node: {0x14000128700 0x140000560c0}, Domain: linkedin.com, Resolved IP: 108.174.10.10, Elapsed Time: 6.656917ms
+Node: {0x140001280e0 0x14000056088}, Domain: instagram.com, Resolved IP: 157.240.241.174, Elapsed Time: 8.176667ms
+Node: {0x14000128620 0x140000560b8}, Domain: yahoo.com, Resolved IP: 98.137.149.56, Elapsed Time: 5.843042ms
+Node: {0x140001281c0 0x14000056090}, Domain: microsoft.com, Resolved IP: 40.76.4.15, Elapsed Time: 5.877917ms
+Node: {0x14000128540 0x140000560b0}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 5.990416ms
+Node: {0x140001288c0 0x140000560d0}, Domain: apple.com, Resolved IP: 17.253.144.10, Elapsed Time: 250.834µs
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Node: {0x14000128620 0x140000560b8}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 7.863625ms
+Node: {0x14000128460 0x140000560a8}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 8.164542ms
+Domain: random.org, Attempt: 1, Timeout
+Node: {0x140001282a0 0x14000056098}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 11.193125ms
+Domain: random.org, Attempt: 2, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: random.org, Resolution failed after 3 attempts
+Node: {0x14000128460 0x140000560a8}, Domain: reddit.com, Resolved IP: 151.101.193.140, Elapsed Time: 13.821958ms
+Node: {0x140001287e0 0x140000560c8}, Domain: wikipedia.org, Resolved IP: 208.80.154.224, Elapsed Time: 13.916792ms
+Node: {0x14000128380 0x140000560a0}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 20.704ms
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Node: {0x14000128460 0x140000560a8}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 22.373458ms
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Node: {0x14000128620 0x140000560b8}, Domain: twitter.com, Resolved IP: 199.59.149.230, Elapsed Time: 18.406333ms
+Node: {0x14000128380 0x140000560a0}, Domain: youtube.com, Resolved IP: 74.125.65.91, Elapsed Time: 18.915542ms
+Node: {0x14000128380 0x140000560a0}, Domain: instagram.com, Resolved IP: 157.240.241.174, Elapsed Time: 22.4525ms
+Node: {0x140001280e0 0x14000056088}, Domain: linkedin.com, Resolved IP: 108.174.10.10, Elapsed Time: 24.79725ms
+Node: {0x140001288c0 0x140000560d0}, Domain: amazon.com, Resolved IP: 205.251.242.103, Elapsed Time: 26.188167ms
+Node: {0x14000128460 0x140000560a8}, Domain: yahoo.com, Resolved IP: 98.137.149.56, Elapsed Time: 8.894792ms
+Node: {0x14000128540 0x140000560b0}, Domain: apple.com, Resolved IP: 17.253.144.10, Elapsed Time: 8.934ms
+Node: {0x14000128380 0x140000560a0}, Domain: microsoft.com, Resolved IP: 40.76.4.15, Elapsed Time: 9.499208ms
+Node: {0x14000128700 0x140000560c0}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 12.137417ms
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Node: {0x14000128380 0x140000560a0}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 7.957291ms
+Domain: random.org, Attempt: 1, Timeout
+Node: {0x140001281c0 0x14000056090}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 11.2165ms
+Node: {0x14000128460 0x140000560a8}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 12.577625ms
+Domain: googletagmanager.com, Attempt: 1, Timeout
+Node: {0x14000128380 0x140000560a0}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 13.742833ms
+Domain: random.org, Attempt: 2, Timeout
+Domain: googletagmanager.com, Attempt: 2, Timeout
+Domain: random.org, Attempt: 3, Timeout
+Domain: googletagmanager.com, Attempt: 3, Timeout
+Domain: random.org, Resolution failed after 3 attempts
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Node: {0x14000128460 0x140000560a8}, Domain: reddit.com, Resolved IP: 151.101.193.140, Elapsed Time: 7.42225ms
+Node: {0x140001282a0 0x14000056098}, Domain: wikipedia.org, Resolved IP: 208.80.154.224, Elapsed Time: 7.926333ms
+Node: {0x140001280e0 0x14000056088}, Domain: twitter.com, Resolved IP: 199.59.149.230, Elapsed Time: 19.726083ms
+Node: {0x140001288c0 0x140000560d0}, Domain: amazon.com, Resolved IP: 205.251.242.103, Elapsed Time: 24.065875ms
+Node: {0x140001288c0 0x140000560d0}, Domain: linkedin.com, Resolved IP: 108.174.10.10, Elapsed Time: 24.584416ms
+Node: {0x140001280e0 0x14000056088}, Domain: youtube.com, Resolved IP: 74.125.65.91, Elapsed Time: 24.680041ms
+Node: {0x140001281c0 0x14000056090}, Domain: facebook.com, Resolved IP: 31.13.77.36, Elapsed Time: 28.186292ms
+Node: {0x140001282a0 0x14000056098}, Domain: apple.com, Resolved IP: 17.253.144.10, Elapsed Time: 3.758083ms
+Node: {0x14000128460 0x140000560a8}, Domain: microsoft.com, Resolved IP: 40.76.4.15, Elapsed Time: 3.893083ms
+Node: {0x14000128540 0x140000560b0}, Domain: yahoo.com, Resolved IP: 98.137.149.56, Elapsed Time: 6.709042ms
+Node: {0x14000128460 0x140000560a8}, Domain: netflix.com, Resolved IP: 52.6.137.65, Elapsed Time: 8.1535ms
+Node: {0x140001280e0 0x14000056088}, Domain: instagram.com, Resolved IP: 157.240.241.174, Elapsed Time: 8.876292ms

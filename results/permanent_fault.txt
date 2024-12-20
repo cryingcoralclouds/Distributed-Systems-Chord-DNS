@@ -1,0 +1,57 @@
+Node: {0x140000d4380 0x140000a8098}, Domain: google.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: facebook.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d48c0 0x140000a80c8}, Domain: netflix.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d47e0 0x140000a80c0}, Domain: google.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: netflix.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4700 0x140000a80b8}, Domain: facebook.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d48c0 0x140000a80c8}, Domain: facebook.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d4540 0x140000a80a8}, Domain: google.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d48c0 0x140000a80c8}, Domain: netflix.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Domain: netflix.com, Resolution failed after 3 attempts
+Domain: facebook.com, Resolution failed after 3 attempts
+Domain: google.com, Resolution failed after 3 attempts
+Node: {0x140000d4620 0x140000a80b0}, Domain: random.org, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: googletagmanager.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Domain: #cdf, Resolution failed, illegal domain name
+Domain: #cdf, Resolution failed after 3 attempts
+Node: {0x140000d47e0 0x140000a80c0}, Domain: googletagmanager.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d42a0 0x140000a8090}, Domain: random.org, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4700 0x140000a80b8}, Domain: random.org, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d4460 0x140000a80a0}, Domain: googletagmanager.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Domain: googletagmanager.com, Resolution failed after 3 attempts
+Domain: random.org, Resolution failed after 3 attempts
+Node: {0x140000d4700 0x140000a80b8}, Domain: reddit.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4540 0x140000a80a8}, Domain: google.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: wikipedia.org, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d40e0 0x140000a8080}, Domain: reddit.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d48c0 0x140000a80c8}, Domain: wikipedia.org, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d41c0 0x140000a8088}, Domain: google.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: google.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d4700 0x140000a80b8}, Domain: reddit.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d48c0 0x140000a80c8}, Domain: wikipedia.org, Attempt: 3, Error: permanent fault: node is asleep forever
+Domain: wikipedia.org, Resolution failed after 3 attempts
+Domain: reddit.com, Resolution failed after 3 attempts
+Domain: google.com, Resolution failed after 3 attempts
+Node: {0x140000d41c0 0x140000a8088}, Domain: facebook.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4460 0x140000a80a0}, Domain: amazon.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4540 0x140000a80a8}, Domain: youtube.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: facebook.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4700 0x140000a80b8}, Domain: youtube.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d41c0 0x140000a8088}, Domain: amazon.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4620 0x140000a80b0}, Domain: amazon.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d4700 0x140000a80b8}, Domain: facebook.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d48c0 0x140000a80c8}, Domain: youtube.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Domain: youtube.com, Resolution failed after 3 attempts
+Domain: amazon.com, Resolution failed after 3 attempts
+Domain: facebook.com, Resolution failed after 3 attempts
+Node: {0x140000d4460 0x140000a80a0}, Domain: twitter.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d40e0 0x140000a8080}, Domain: linkedin.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d41c0 0x140000a8088}, Domain: instagram.com, Attempt: 1, Error: permanent fault: node is asleep forever
+Node: {0x140000d41c0 0x140000a8088}, Domain: linkedin.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d4460 0x140000a80a0}, Domain: instagram.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d42a0 0x140000a8090}, Domain: twitter.com, Attempt: 2, Error: permanent fault: node is asleep forever
+Node: {0x140000d47e0 0x140000a80c0}, Domain: twitter.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d4540 0x140000a80a8}, Domain: linkedin.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Node: {0x140000d4380 0x140000a8098}, Domain: instagram.com, Attempt: 3, Error: permanent fault: node is asleep forever
+Domain: instagram.com, Resolution failed after 3 attempts
+Domain: twitter.com, Resolution failed after 3 attempts
