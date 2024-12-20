@@ -4,11 +4,12 @@ package main
 options for terminal commands to run the project:
 01 go run main.go test_suite.go base_case.go utils.go
 02 go run .
->>>03a go build -o chord_dns
->>>03b ./chord_dns
+*preferred 03a go build -o chord_dns
+*preferred 03b ./chord_dns
 
 flags:
 -numNodes=20
+-concurrentRequests=10
 -case=base/case1/case2/case3/case4/test
 -all
 -ping
@@ -51,7 +52,8 @@ func main() {
 	// Define and parse flags
 	config := defineFlags()
 	numNodes := flag.Int("numNodes", 10, "Number of Chord nodes to initialize (default: 10)")
-	caseFlag := flag.String("case", "base", "Specify the case to run: base, case1, case2, case3, case4, or test")
+	caseFlag := flag.String("case", "client", "Specify the case to run: client, base, case1, case2, case3, case4, or test")
+	concurrentRequests := flag.Int("concurrentRequests", 10, "Number of concurrent lookup requests")
 	flag.Parse()
 
 	// Initialize Chord nodes
@@ -62,21 +64,26 @@ func main() {
 
 	// Run the appropriate case based on the case flag
 	switch *caseFlag {
+	case "client":
+		testNodeJoining(nodes)
+		time.Sleep(5 * time.Second)
+		runBaseCasePut(nodes)
+		runClientInterface(nodes) // Run client interface
 	case "base":
 		fmt.Println("\nRunning the base case...")
 		runBaseCase(nodes)
 	case "case1":
 		fmt.Println("\nRunning Case 1...")
-		// Add code for Case 1 logic here
+		runCase1(nodes, *concurrentRequests)
 	case "case2":
 		fmt.Println("\nRunning Case 2...")
-		// Add code for Case 2 logic here
+		runCase2(nodes)
 	case "case3":
 		fmt.Println("\nRunning Case 3...")
-		// Add code for Case 3 logic here
+		runCase3(nodes)
 	case "case4":
 		fmt.Println("\nRunning Case 4...")
-		// Add code for Case 4 logic here
+		runCase4(nodes)
 	case "test":
 		fmt.Println("\nRunning the test cases...")
 		runTestSuite(nodes, config)

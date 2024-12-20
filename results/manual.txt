@@ -1,0 +1,3 @@
+Domain: google.com, Attempt: 1, Timeout
+Node: {0x1400011e7e0 0x14000056090}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 2.712209ms
+Node: {0x140001500e0 0x14000114048}, Domain: google.com, Resolved IP: 172.217.20.206, Elapsed Time: 3.557917ms

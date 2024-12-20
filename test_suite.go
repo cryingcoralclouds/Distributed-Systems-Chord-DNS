@@ -233,9 +233,31 @@ func testPutAndGet(nodes []ChordNode) {
 	}
 }
 
+/* func testPrintDHTs(nodes []ChordNode) {
+	fmt.Println("Distributed Hash Tables (DHTs) for each node:")
+	for i, node := range nodes {
+		fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID.String())
+		if len(node.node.DHT) == 0 {
+			fmt.Println("  DHT is empty.")
+			continue
+		}
+		for key, metadata := range node.node.DHT {
+			fmt.Printf("  Key: %s, Value: %s (Primary: %v)\n",
+				key, string(metadata.Value), metadata.IsPrimary)
+			if !metadata.IsPrimary {
+				fmt.Printf("    Primary Node: %s\n", metadata.PrimaryNode.ID)
+			}
+		}
+	}
+} */
+
 func testPrintDHTs(nodes []ChordNode) {
 	fmt.Println("Distributed Hash Tables (DHTs) for each node:")
 	for i, node := range nodes {
+		if !node.node.IsAlive {
+			fmt.Printf("\nNode %d (ID: %s) is not active.\n", i+1, node.node.ID.String())
+			continue
+		}
 		fmt.Printf("\nNode %d (ID: %s):\n", i+1, node.node.ID.String())
 		if len(node.node.DHT) == 0 {
 			fmt.Println("  DHT is empty.")

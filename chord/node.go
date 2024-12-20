@@ -66,7 +66,7 @@ func NewNode(addr string, client NodeClient) (*Node, error) {
 	}
 
 	// Start stabilization
-	node.startStabilize()
+	node.StartStabilize()
 	// go node.startFixFingers()
 
 	return node, nil
@@ -190,6 +190,40 @@ func (n *Node) Join(introducer *RemoteNode) error {
 		return fmt.Errorf("failed to find successor: %w", err)
 	}
 
+	// Get successor's predecessor to determine key range
+	predecessorOfSuccessor, err := successor.Client.GetPredecessor(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get successor's predecessor: %w", err)
+	}
+	// Calculate start hash (predecessor of successor's hash)
+	var startHash *big.Int
+	if predecessorOfSuccessor == nil {
+		// If successor has no predecessor, use successor's hash
+		startHash = successor.ID
+	} else {
+		startHash = predecessorOfSuccessor.ID
+	}
+	// Request key transfer for range (predecessor(successor)_hash, new_node_hash]
+	keys, err := successor.Client.TransferKeys(ctx, startHash, n.ID)
+	if err != nil {
+		log.Printf("[Join] Warning: failed to transfer keys: %v", err)
+	} else {
+		// Store transferred keys
+		for key, value := range keys {
+			n.DHT[key] = KeyMetadata{
+				Value:     value,
+				Version:   time.Now().UnixNano(),
+				IsPrimary: true,
+				PrimaryNode: &RemoteNode{
+					ID:      n.ID,
+					Address: n.Address,
+					Client:  n.Client,
+				},
+			}
+		}
+		log.Printf("[Join] Successfully transferred %d keys", len(keys))
+	}
+
 	// Clear our predecessor - it will be set through stabilization
 	n.Predecessor = nil
 
@@ -225,15 +259,18 @@ func (n *Node) Leave() error {
 		return ErrNodeDown
 	}
 
+	// Only attempt to transfer keys if we have both predecessor and successor
 	if n.Successors[0] != nil && n.Predecessor != nil {
 		ctx, cancel := context.WithTimeout(n.ctx, NetworkTimeout)
 		defer cancel()
 
+		// Transfer keys to predecessor
 		keys, err := n.TransferKeys(n.Predecessor.ID, n.ID)
 		if err != nil {
 			return fmt.Errorf("failed to transfer keys: %w", err)
 		}
 
+		// Store transferred keys on predecessor
 		for key, value := range keys {
 			metadata := KeyMetadata{
 				Value:       value,
@@ -245,21 +282,75 @@ func (n *Node) Leave() error {
 				return fmt.Errorf("failed to store transferred key %s: %w", key, err)
 			}
 		}
+		// Notify predecessor to update its successor
+		if err := n.Predecessor.Client.Notify(ctx, n.Successors[0]); err != nil {
+			log.Printf("Failed to notify predecessor of departure: %v", err)
+		}
+		// Notify successor to update its predecessor
+		if err := n.Successors[0].Client.Notify(ctx, n.Predecessor); err != nil {
+			log.Printf("Failed to notify successor of departure: %v", err)
+		}
 	}
+	// Clear all internal state
+	n.DHT = make(map[string]KeyMetadata)
+	n.Versions = make(map[string]int64)
+	n.ReplicationStatus = make(map[string][]*RemoteNode)
+	n.Successors = make([]*RemoteNode, NumSuccessors)
+	n.Predecessor = nil
 
 	n.IsAlive = false
-	n.cancel()
+	n.cancel() // Cancel context to stop all background operations
 	return nil
+}
+
+// SimulateFault makes the node non-operational without shutting down the server
+func (n *Node) SimulateFault() {
+	if n.IsAlive {
+		n.IsAlive = false
+		log.Printf("Node %s is now in a fault state.", n.ID)
+		// Notify successors
+		if n.Predecessor != nil {
+			n.Predecessor.Client.Notify(context.TODO(), n.Successors[0])
+		}
+		if n.Successors[0] != nil {
+			n.Successors[0].Client.Notify(context.TODO(), n.Predecessor)
+		}
+	}
+}
+
+// RestoreNode restores a node from the fault state
+func (n *Node) RestoreNode() {
+	if !n.IsAlive {
+		n.IsAlive = true
+		log.Printf("Node %s has been restored to an active state.", n.ID)
+	}
 }
 
 // Collects keys that belong to the node and prepares them for transfer to another node.
 func (n *Node) TransferKeys(start, end *big.Int) (map[string][]byte, error) {
 	keys := make(map[string][]byte)
 	for key, metadata := range n.DHT {
-		hash := HashKey(key)
-		if Between(hash, start, end, true) {
+		// Convert the key string (which is already a hash) directly to big.Int
+		hash := new(big.Int)
+		hash.SetString(key, 10) // Parse the key as base 10 number		log.Printf("KEY AND HASH: %s, %d", key, hash)
+		if metadata.IsPrimary && Between(hash, start, end, true) {
 			keys[key] = metadata.Value
+
+			// Update our copy to non-primary
+			n.DHT[key] = KeyMetadata{
+				Value:     metadata.Value,
+				Version:   metadata.Version,
+				IsPrimary: false,
+				PrimaryNode: &RemoteNode{
+					ID:      end, // The new node's ID
+					Address: "",  // Will be updated through stabilization
+					Client:  nil,
+				},
+			}
 		}
+		log.Printf("[Between] Checking if %s is between %s and %s (inclusive: %v)",
+			hash.String(), start.String(), end.String(), true)
+		log.Printf("TRUE OR NOT: %t", Between(hash, start, end, true))
 	}
 	return keys, nil
 }
@@ -333,7 +424,7 @@ func (n *Node) GetSuccessors() []*RemoteNode {
 }
 
 // To loop stabilization
-func (n *Node) startStabilize() {
+func (n *Node) StartStabilize() {
 	ticker := time.NewTicker(StabilizeInterval)
 	go func() {
 		for {
@@ -385,7 +476,7 @@ func (n *Node) ReplicatedPut(hashedKey string, value []byte) error {
 		// Log successor list state
 		for i, succ := range n.Successors {
 			if succ != nil {
-				log.Printf("  Successor[%d]: %s", i, succ.ID)
+				continue
 			} else {
 				log.Printf("  Successor[%d]: nil", i)
 			}

@@ -12,7 +12,7 @@ func runBaseCase(nodes []ChordNode) {
 	testNodeJoining(nodes)
 
 	// Allow time for stabilization and finger table setup
-	time.Sleep(8 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	printSeparator("Putting Key-Value Pairs into DHTs")
 	runBaseCasePut(nodes)
@@ -65,4 +65,6 @@ func runBaseCasePut(nodes []ChordNode) {
 
 	// Wait for potential replication/stabilization
 	time.Sleep(2 * time.Second)
+
+	fmt.Println("Successfully stored and replicated key-value pairs!")
 }
